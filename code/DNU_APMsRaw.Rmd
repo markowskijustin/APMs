@@ -23,6 +23,7 @@ library(formattable)
 
 `%notin%` <- Negate(`%in%`)
 select <- dplyr::select
+
 ```
 
 ## Formating plots
