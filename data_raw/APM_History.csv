@@ -1,0 +1,52 @@
+﻿Name,Postal Code,FIPS,APM,Year,FullParticip,ShadowYear,Classification,PPS,NewBaseRate,ManagedCare,Attribution,NonQualityPayments,QualityBonus,CostEffectivenessBonus,CodingDependent,Description,Notes,Link1,Link2
+Hawaii,HI,15,Yes,2010,,,1 - Medicaid Managed Care,,,1,,,1,,,,,https://stateofreform.com/wp-content/uploads/2019/01/The-Strategic-Evolution-of-Plan-Provider-Relations-Heywood.pdf,
+Indiana,IN,18,Yes,2009,0,"2009, 2021",5 - Base Rate plus Quality Bonus,,,,,,,,,,,,
+Louisiana,LA,22,Yes,2022,,,1 - Medicaid Managed Care,,,1,,,,,,,"APM for evening and weekend services after 2007, take the effective date from CMS",https://www.medicaid.gov/medicaid/spa/downloads/LA-21-0019.pdf,https://ldh.la.gov/assets/medicaid/StatePlan/Sec4/Attachment4.19BItem2c.pdf
+Maryland,MD,24,Yes,2014,,,1 - Medicaid Managed Care,,,1,,,,,,,,,
+Michigan,MI,26,Yes,2014,1,,3 - Rebased per-visit rate,,,1,,,,,,"Managed Care pays PPS rate adjusted for Medicare economic index or their amount, whichever is higher",,https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/MI/MI-14-006.pdf,https://chrt.sites.uofmhosting.net/wp-content/uploads/2013/07/CHRT_Federally-Qualified-Health-Centers-An-Overview-.pdf
+Nevada,NV,32,Yes,2016,,,1 - Medicaid Managed Care,,,1,,,,,,,Supplemental payments up to PPS rate,https://dhcfp.nv.gov/uploadedFiles/dhcfpnvgov/content/Resources/Rates/WRAP%20Reference%20Guide%20Updated%2020180417.pdf,
+New Hampshire,NH,33,Yes,2012,,,1 - Medicaid Managed Care,,,1,,,,,,,,https://nhmmis.nh.gov/portals/wps/wcm/connect/f2df74004501506ba7e3af3d4e7ec867/NH+Medicaid+rebranded+detailed+FQHC+Provider+Manual+2-1-18.pdf?MOD=AJPERES,
+Pennsylvania,PA,42,Yes,2019,,,1 - Medicaid Managed Care,,,,,,,,,,started in 2016,https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/PA/PA-16-0039.pdf,http://www.pacodeandbulletin.gov/Display/pabull?file=/secure/pabulletin/data/vol49/49-13/467.html
+Wisconsin,WI,55,Yes,2001,0,,1 - Medicaid Managed Care,,,,,,,,,,,https://www.dhs.wisconsin.gov/mandatoryreports/mastateplan/4-19b-noninstitutional.pdf,
+Missouri,MO,29,Yes,2000,1,,2 - At-cost reimbursement,,,,,,,,,Want to expand to statewide FQHC IPAwith shared risk adjustment,,https://cdn.ymaws.com/www.ohiochc.org/resource/resmgr/webinars/OACHC_3rd_Presentation_09092.pdf,
+Montana,MT,30,Yes,2019,,,2 - At-cost reimbursement,,,,,,,,,,"FQHCs are paid at cost or PPS rate, whichever is higher",https://rules.mt.gov/gateway/ruleno.asp?RN=37%2E86%2E4420,https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/MT/MT-18-0003.pdf
+Nebraska,NE,31,Yes,2016,,,3 - Rebased per-visit rate,,1,,,,,,,,"Blended rate at cost, has some provisions for Managed care as well",https://dhhs.ne.gov/Medicaid%20State%20Plan/Attachment%204.19b%20Item%202c%20-%20Federally-qualified%20health%20centers;%20telehealth.pdf,
+North Carolina,NC,37,Yes,2021,,,2 - At-cost reimbursement,,,,,,,,,,,https://www.medicaid.gov/medicaid/medicaid-state-plan-amendments/index.html?search_api_fulltext=apm&field_approval_date%5Bmin%5D=06%2F01%2F2001&field_approval_date%5Bmax%5D=05%2F23%2F2022&field_effective_date%5Bmin%5D=12%2F31%2F2000&field_effective_date%5Bmax%5D=05%2F23%2F2024&sort_by=field_approval_date&sort_order=DESC&items_per_page=10#content,https://medicaid.ncdhhs.gov/media/10208/open
+Ohio,OH,39,Yes,2016,,,2 - At-cost reimbursement,,,,,,,,,,,https://codes.ohio.gov/ohio-administrative-code/rule-5160-28-07.1,
+South Carolina,SC,45,Yes,2017,1,,2 - At-cost reimbursement,1,,,,,,,,Minimum volume requirements,Effective 2017,https://www.scdhhs.gov/sites/default/files/SC%2016-0005%20CMS%20SPA%20Approval%20Packet.pdf,https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/SC/SC-17-0012.pdf
+Tennessee,TN,47,Yes,2000,1,,2 - At-cost reimbursement,,1,,,,,,,Mentions managed care but less clear,,https://www.tn.gov/content/dam/tn/tenncare/documents2/FQHCRHCSPA.pdf,
+Utah,UT,49,Yes,2014,0,,2 - At-cost reimbursement,,1,,,,,,,,atleast since,https://medicaid.utah.gov/Documents/manuals/pdfs/Medicaid%20Provider%20Manuals/Rural%20Health%20Clinic%20And%20FQHC/RHC_FQHC.pdf,
+Alaska,AK,2,Partial,2021,,,3 - Rebased per-visit rate,1,,,,1,,,,Indian Health Service All-inclusive rate,Tribal only,https://dhss.alaska.gov/dhcs/Documents/Tribal-Health/Tribal-Consultation/Letters/letter_20210623.pdf,
+Delaware,DE,10,Yes,2018,,,3 - Rebased per-visit rate,,1,,,,,,,New rate based on most recent cost report,,https://regulations.delaware.gov/register/june2018/final/21%20DE%20Reg%20975%2006-01-18.htm,
+Idaho,ID,16,Partial,2017,,,3 - Rebased per-visit rate,,,,,1,,,,Primary Care Residents only,"Moved to full APM option in 2020, started in 2017",https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/ID/ID-17-0010.pdf,https://www.nashp.org/idaho-develops-a-medicaid-value-based-payment-model-for-its-fqhcs-based-on-cost-and-quality/
+Kansas,KS,20,Yes,2013,0,,3 - Rebased per-visit rate,,1,,,,,,,Rebased PPS Rate,,http://nachc.org/wp-content/uploads/2015/11/2014-pps-report-LE-Edits-2-20-15.pdf,
+Kentucky,KY,21,Yes,2014,,,3 - Rebased per-visit rate,,1,,,,,,,Elevated bundled rate,,"https://www.mcbrayerfirm.com/blogs-Healthcare-Law-Blog,rhcs-and-fqhcs-its-time-to-take-a-second-look-at-alternate-payment-methodology",
+New Mexico,NM,35,Yes,2003,,,3 - Rebased per-visit rate,,,,,,,,,Rebased PPS rates to CPI not MEI,,https://www.hsd.state.nm.us/wp-content/uploads/NM-19-0016-Approved.pdf,
+North Dakota,ND,38,Patial,2019,,,3 - Rebased per-visit rate,,,,,,,,,"All inclusive Rate, tribal",,https://www.medicaid.gov/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/ND/ND-19-0001.pdf,
+Texas,TX,48,Yes,2009,0,,3 - Rebased per-visit rate,,1,,,,,,,Index PPS rate to MEI + 0.5 percent,atleast since,https://www.lbb.texas.gov/Documents/Publications/Issue_Briefs/1326_FQHCs_PPS.pdf,
+Vermont,VT,50,Partial,2014,1,,3 - Rebased per-visit rate,,,,,,,,,,APM ended 2022,https://humanservices.vermont.gov/sites/ahsnew/files/documents/MedicaidPolicy/GCRProposedPolicies/2proposed-gcr-18-111-fqhc-rhc.pdf,
+Virginia,VA,51,Partial,2021,1,,3 - Rebased per-visit rate,,,,,,,,,,,https://www.dmas.virginia.gov/media/3538/spa-21-0007-tribal-health-clinic.pdf,
+Wyoming,WY,56,Partial,2021,,,3 - Rebased per-visit rate,,,,,,,,,,,https://www.medicaid.gov/medicaid/spa/downloads/WY-20-0010.pdf,
+Alabama,AL,1,Yes,2019,,,4 - PMPM Payment,1,,,1,,1,1,2,Bonus Payments: Quality and Cost Effectiveness ,,https://medicaid.alabama.gov/documents/9.0_Resources/9.8_State_Plan/9.8_4.19-B_Payment_for_Medical_Care_Services_Excluding_Inpatient_Hospital_Long_Term_Care_4-13-20.pdf,
+Connecticut,CT,9,Maybe,2016,0,,4 - PMPM Payment,,,,1,,1,,,Shared savings,Econsults only,https://portal.ct.gov/-/media/Departments-and-Agencies/DSS/Health-and-Home-Care/PCMH-Plus/pcmh_informationsession_providers_finaldraft_12_9_16update.pdf,
+Illinois,IL,17,Yes,2001,0,2023,4 - PMPM Payment,,,,,,,,,,,https://www2.illinois.gov/hfs/SiteCollectionDocuments/101112pn.pdf,
+Massachusetts,MA,25,Yes,2012,1,,4 - PMPM Payment,1,,,1,,,,,Global APM payments,,https://www.bailit-health.com/publications/2015-0318-bhp-bcbs-apm.pdf,
+New York,NY,36,Yes,2010,0,,4 - PMPM Payment,,,,,,,,,"Ambulatory patient group reiumbursement methodology, able to bill for other services not typically covered, existing program, PMPM payments",,https://www.health.ny.gov/health_care/medicaid/rates/fqhc/apg_opt_in.htm,https://www.chcanys.org/sites/default/files/2021-03/APM%20Overview_membership%20meeting%2010.28.20%20Final.pdf
+Oklahoma,OK,40,Yes,2018,,,4 - PMPM Payment,,,,1,1,,,,NO QUALITY STOPGAPS,,https://oklahoma.gov/content/dam/ok/en/okhca/documents/a0400/21348.pdf,
+Oregon,OR,41,Yes,2013,0,,4 - PMPM Payment,,,,1,,1,,,,,https://www.oregon.gov/oha/HSD/OHP/Tools/APM%20FAQs.pdf,
+Washington,WA,53,Yes,2017,1,,4 - PMPM Payment,,,,1,,1,,,,,https://apps.leg.wa.gov/wac/default.aspx?cite=182-548-1400,
+Arizona,AZ,4,Yes,2018,,,5 - Base Rate plus Quality Bonus,1,,,,,1,,0,PPS times Quality adjustment factor to raise next years PPS rate by last year's quality achievement,,https://www.azahcccs.gov/AHCCCS/Downloads/PublicNotices/ProposedStatePlanAmendment-2018FQHC_APM_FINAL.pdf,
+Colorado,CO,8,Yes,2017,1,,5 - Base Rate plus Quality Bonus,1,,,,,1,,1,,Maybe 2000,https://www.civhc.org/wp-content/uploads/2021/04/Report-of-Colorado-Primary-Care-Spending-and-Alternative-Payment-Model-Use-2017-2019.pdf,https://nashp.org/wp-content/uploads/2017/09/CO-Medicaid-CCHN_Shared-Intent-Statement.pdf
+District Of Columbia,DC,11,Yes,2016,,,5 - Base Rate plus Quality Bonus,,1,,,,1,,,Updated base rate plus quality incentives,,https://www.medicaid.gov/sites/default/files/State-resource-center/Medicaid-State-Plan-Amendments/Downloads/DC/DC-16-009.pdf,
+Minnesota,MN,27,Yes,2007,1,,5 - Base Rate plus Quality Bonus,1,,,,,1,,,,"Many changes throughout years, example of a legacy program… shit tons of changes, moving away from explicit quality measures to more elevated bundled payments",https://www.medicaid.gov/medicaid/spa/downloads/MN-21-0013.pdf,https://www.revisor.mn.gov/statutes/cite/256B.0625
+Rhode Island,RI,44,Yes,2017,1,,5 - Base Rate plus Quality Bonus,,,1,,,1,,,"Shared savings plan, also Managed care involved too",,https://eohhs.ri.gov/sites/g/files/xkgbur226/files/2021-06/Updated%20Transition%20to%20APM%20April%202021_Final.pdf,
+Arkansas,AR,5,No,,,,,,,,,,,,,,,,
+California,CA,6,Yes,,,2024,,,,,,,,,,,Go Line 2024: https://www.dhcs.ca.gov/services/Documents/DirectedPymts/FQHC-APM-September-2022-Overview.pdf,https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=201520160SB147,https://www.hcinnovationgroup.com/policy-value-based-care/alternative-payment-models/news/21269204/california-seeks-to-pilot-apms-with-fqhcs
+Florida,FL,12,No,,,,,,,,,,,,,,,,
+Georgia,GA,13,No,,,,,,,,,,,,,,,,
+Iowa,IA,19,Partial,,0,,,,,,,,,,,"All Inclusive rate, tribal",,,
+Maine,ME,23,No,,,,,,,,,,,,,,,,
+Mississippi,MS,28,Maybe,,,,,,,,,,,,,,,https://medicaid.ms.gov/wp-content/uploads/2021/07/Title-23-Part-211-Federally-Qualified-Health-Centers-eff.-07.01.21.pdf,
+New Jersey,NJ,34,No,,,,,,,,,,,,,,,,
+South Dakota,SD,46,No,,,,,,,,,,,,,,,https://dss.sd.gov/docs/medicaid/providers/billingmanuals/Professional/FQHC_and_RHC.pdf,
+West Virginia,WV,54,No,,,,,,,,,,,,,,,,
