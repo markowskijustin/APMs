@@ -1,0 +1,2182 @@
+---
+title: "Aim 2"
+author: "Justin"
+date: "2022-11-02"
+output: html_document
+---
+
+
+# Libraries
+```{r}
+library(tidyverse)
+library(readxl)
+library(did)
+library(Matching)
+library(gtsummary)
+library(RODBC)
+library(ggpubr)
+library(fixest)
+library(kableExtra)
+library(usmap)
+library(did2s)
+library(formattable)
+
+`%notin%` <- Negate(`%in%`)
+select <- dplyr::select
+```
+
+## Formating plots
+
+```{r, echo = FALSE, results = "asis", message=FALSE, warning = FALSE, fig.align="center"}
+
+is.extrafont.installed <- function(){
+  if(is.element("extrafont", installed.packages()[,1])){
+    library(extrafont)
+    # probably need something here to run font_import()
+    return(T)
+  }else{
+    warning("Library extrafont installed; using system sans/serif libraries as fallback fonts. 
+    To enable full font support, run: 
+      install.packages('extrafont') 
+      font_import()")
+    return(F)
+  }
+}
+
+
+# set font
+base_font_family_tufte <- function(){
+  if(is.extrafont.installed()){
+    library(extrafont)
+    tuftefont <- choose_font(c("Gill Sans MT", "Gill Sans", "GillSans", "Verdana", "serif"), quiet = FALSE)   #
+  }else{
+    tuftefont <- "serif"
+  }
+  return(tuftefont)
+}
+
+theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_tufte(), ticks = TRUE) {
+  
+  ret <- theme_bw(base_family = base_family, base_size = base_size) + 
+    theme(
+      axis.line = element_line(color = 'black'),
+      axis.title.x = element_text(vjust = -0.3), 
+      axis.title.y = element_text(vjust = 0.8),
+      legend.background = element_blank(), 
+      legend.key = element_blank(), 
+      legend.title = element_text(face="plain"),
+      panel.background = element_blank(), 
+      panel.border = element_blank(),
+      panel.grid = element_blank(),
+      plot.background = element_blank(),
+      strip.background = element_blank()
+    )
+  
+  if (!ticks) {
+    ret <- ret + theme(axis.ticks = element_blank())
+  }
+  
+  ret
+} 
+
+
+```
+
+# Data Prep
+
+## Sites and ZipCodes
+```{r}
+
+## Zips
+locs <- paste("/Users/jhm65/Research/CHC Development/UDS/UDS-", c(2014:2021), "-Full-Dataset.xlsx", sep = "")
+uds.zip <- read_excel(locs[1], sheet = "HealthCenterZipCodes") 
+
+new.zip.names <- c("BHCMIS ID", "Grant Number", "Reporting Year" , "Zip Code", "Zip Code Type",  "None_Uninsured Patients" ,  "Medicaid_CHIP_Other Public Patients", "Medicare Patients", "Private Patients", "Total Number of Patients" ) 
+colnames(uds.zip) <-    new.zip.names
+
+for(i in 2:length(locs)){
+  temp.zip <- read_excel(locs[i], sheet = "HealthCenterZipCodes")
+  colnames(temp.zip) <- new.zip.names
+  uds.zip <- rbind(uds.zip, temp.zip %>% mutate(`Zip Code` = str_pad(`Zip Code`, 5, pad = "0")))
+}
+
+# ## Rename
+# new.zip.names <- c("BHCMIS ID", "Grant Number", "Reporting Year" , "Zip Code", "Zip Code Type",  "None_Uninsured Patients" ,  "Medicaid_CHIP_Other Public Patients", "Medicare Patients", "Private Patients", "Total Number of Patients" ) 
+# colnames(uds.zip) <-    new.zip.names
+# 
+# 
+# ## Clean
+# 
+# uds.zip[uds.zip$`Total Number of Patients`== '-' | uds.zip$`Total Number of Patients`== '--',]$`Total Number of Patients` <- NA
+# uds.zip$`Total Number of Patients` <- as.numeric(uds.zip$`Total Number of Patients`)
+# uds.zip <- uds.zip[!is.na(uds.zip$`Total Number of Patients`),] %>% 
+#     mutate(`Reporting Year` = as.numeric(`Reporting Year`))
+# 
+# uds.zip$`None_Uninsured Patients` <- as.numeric(uds.zip$`None_Uninsured Patients`)
+# uds.zip$`Medicaid_CHIP_Other Public Patients` <- as.numeric(uds.zip$`Medicaid_CHIP_Other Public Patients`)
+# uds.zip$`Medicare Patients` <- as.numeric(uds.zip$`Medicare Patients`)
+# uds.zip$`Private Patients` <- as.numeric(uds.zip$`Private Patients`)
+# 
+# 
+# uds.zip <- cbind(uds.zip, broken.total = rowSums(uds.zip[,c(6:9)], na.rm = TRUE), missings = rowSums(is.na(uds.zip[,c(6:9)]))) %>% 
+#   mutate(`Total Number of Patients` = as.numeric(`Total Number of Patients`)) %>% 
+#   mutate(`Total Number of Patients` = ifelse(is.na(`Total Number of Patients`), round(missings*16/4), `Total Number of Patients`)) %>% 
+#   mutate(`None_Uninsured Patients` = ifelse(is.na(`None_Uninsured Patients`), (`Total Number of Patients` - broken.total) * 1/missings, `None_Uninsured Patients`), 
+#          `Medicaid_CHIP_Other Public Patients` = ifelse(is.na(`Medicaid_CHIP_Other Public Patients`), (`Total Number of Patients` - broken.total) * 1/missings, `Medicaid_CHIP_Other Public Patients`), 
+#          `Medicare Patients` = ifelse(is.na(`Medicare Patients`), (`Total Number of Patients` - broken.total) * 1/missings, `Medicare Patients`), 
+#          `Private Patients` = ifelse(is.na(`Private Patients`), (`Total Number of Patients` - broken.total) * 1/missings, `Private Patients`))
+
+
+uds.zip$`Reporting Year` <- as.numeric(uds.zip$`Reporting Year`)
+uds.zip$`Total Number of Patients` <- as.numeric(uds.zip$`Total Number of Patients`)
+uds.zip$`None_Uninsured Patients` <- as.numeric(uds.zip$`None_Uninsured Patients`)
+uds.zip$`Medicaid_CHIP_Other Public Patients` <- as.numeric(uds.zip$`Medicaid_CHIP_Other Public Patients`)
+uds.zip$`Medicare Patients` <- as.numeric(uds.zip$`Medicare Patients`)
+uds.zip$`Private Patients` <- as.numeric(uds.zip$`Private Patients`)
+
+
+uds.zip[is.na(uds.zip$`Total Number of Patients`),]$`Total Number of Patients` <- 0
+uds.zip[grep("-", uds.zip$`None_Uninsured Patients`),]$`None_Uninsured Patients` <- 0
+uds.zip[grep("-", uds.zip$`Medicaid_CHIP_Other Public Patients`),]$`Medicaid_CHIP_Other Public Patients` <- 0
+uds.zip[grep("-", uds.zip$`Medicare Patients`),]$`Medicare Patients` <- 0
+uds.zip[grep("-", uds.zip$`Private Patients`),]$`Private Patients` <- 0
+
+uds.zip.totals <- uds.zip %>%
+  select(`Grant Number`, `Reporting Year`, `None_Uninsured Patients`:`Total Number of Patients`) %>%
+  group_by(`Grant Number`, `Reporting Year`) %>% summarise(None = sum(`None_Uninsured Patients`, na.rm = T),
+                                                           MCR = sum(`Medicare Patients`, na.rm = T),
+                                                           COM = sum(`Private Patients`, na.rm = T),
+                                                           MCD = sum(`Medicaid_CHIP_Other Public Patients`, na.rm = T),
+                                                           Total = sum(`Total Number of Patients`, na.rm = T))
+
+uds.zip <- uds.zip[uds.zip$`Zip Code Type` == "ZipCode",]
+
+
+
+
+
+## Sites
+locs <- paste("/Users/jhm65/Research/CHC Development/UDS/UDS-", c(2012:2021), "-Full-Dataset.xlsx", sep = "")
+
+uds.sites <- read_excel(locs[1], sheet = "HealthCenterSiteInfo") %>% 
+  select(BHCMISID, GrantNumber, HealthCenterName, SiteName, SiteType, LocationType, LocationSetting, OperationalSchedule, CalendarSchedule, TotalWeeklyHoursOfOperation, SiteStreetAddress, SiteCity, SiteState, SiteZIPCode) %>% 
+  mutate(Year = 2012)
+
+
+colnames(uds.sites) <- c("BHCMIS ID", "Grant Number", "Health Center Name", "Site Name", "Site Type", "Location Type", "Location Setting", "Operational Schedule", "Calendar Schedule", "Total Weekly Hours Of Operation", "Site Street Address", "Site City", "Site State", "Site ZIP Code", "Year")    
+
+for(i in 2:3){
+site.temp <- read_excel(locs[i], sheet = "HealthCenterSiteInfo") %>% 
+                       select(BHCMISID, GrantNumber, HealthCenterName, SiteName, SiteType, LocationType, LocationSetting, OperationalSchedule, CalendarSchedule, TotalWeeklyHoursOfOperation, 
+                              SiteStreetAddress, SiteCity, SiteState, SiteZIPCode) %>%
+  mutate(Year = 2011 + i)
+  
+colnames(site.temp) <- c("BHCMIS ID", "Grant Number", "Health Center Name", "Site Name", "Site Type", "Location Type", "Location Setting", "Operational Schedule", "Calendar Schedule", "Total Weekly Hours Of Operation", "Site Street Address", "Site City", "Site State", "Site ZIP Code", "Year")    
+
+   uds.sites <-  rbind(uds.sites, site.temp)
+}
+
+
+for(i in 4:(length(locs)-1)){
+  uds.sites <- rbind(uds.sites, read_excel(locs[i], sheet = "HealthCenterSiteInfo") %>% 
+                       select("BHCMIS ID", "Grant Number", "Health Center Name", "Site Name", "Site Type", "Location Type", "Location Setting", "Operational Schedule", "Calendar Schedule", "Total Weekly Hours Of Operation", "Site Street Address", "Site City", "Site State", "Site ZIP Code") %>% 
+  mutate(Year = 2011 + i))
+}
+
+temp.sites <- read_excel(locs[i+1], sheet = "HealthCenterSiteInfo" )%>% 
+  select(BHCMISID, GrantNumber, HealthCenterName, SiteName, SiteType, LocationType, LocationSetting, OperationalSchedule, CalendarSchedule, TotalWeeklyHoursOfOperation, SiteStreetAddress, SiteCity, SiteState, SiteZIPCode) %>% 
+  mutate(Year = 2021)
+colnames(temp.sites) <- c("BHCMIS ID", "Grant Number", "Health Center Name", "Site Name", "Site Type", "Location Type", "Location Setting", "Operational Schedule", "Calendar Schedule", "Total Weekly Hours Of Operation", "Site Street Address", "Site City", "Site State", "Site ZIP Code", "Year")    
+
+uds.sites <- rbind(uds.sites, temp.sites)
+
+
+
+
+
+
+uds.sites.old <- read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Sites.csv", colClasses = "character") %>% 
+  mutate(Year = as.numeric(Year))
+
+colnames(uds.sites.old) <- c("BHCMIS ID", "Health Center Name", "Site Name", "Site Street Address", "Site Street Address 2", "Site State", "Site ZIP Code", "Year", "GranteeID", "Site Street Address 3","Site City","ModernGrateeID")    
+
+uds.sites.full <- bind_rows(uds.sites, uds.sites.old) %>% 
+  arrange(`BHCMIS ID`, Year) %>% 
+  select(`BHCMIS ID`:`Health Center Name`, Year, `Site Name`, `Site Street Address`, `Site Street Address 2`, `Site Street Address 3`, `Site City`, `Site State`, `Site ZIP Code` , `Site Type`:`Total Weekly Hours Of Operation`)
+
+         
+uds.sites.full$Zip <- substr(uds.sites.full$`Site ZIP Code`, 1, 5)
+
+uds.sites.full <- uds.sites.full %>% 
+  filter(`Site State` %notin% c('GU','VI','PW','MH','AS','FM','PR','MP')) #'AK','HI',
+
+uds.sites.full[grep(pattern = "-", uds.sites.full$Zip),]$Zip <- NA
+
+#write.csv(x = uds.sites.full, file = "//Users/jhm65/Research/Historical UDS/Sites96to21.csv")
+
+
+
+```
+
+
+
+## Merge with Older UDSs 1996-2011
+```{r}
+uds.cw <- read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_CW.csv", colClasses = "character") %>% 
+  mutate(link.ID = ifelse(is.na(ModernGranteeID) & !is.na(LongGrantID) & Year != 2010, LongGrantID, 
+                   ifelse(is.na(ModernGranteeID) & !is.na(GranteeID), GranteeID, BHCMIS.ID)), 
+         Year = as.integer(Year))
+
+
+uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(BHCMIS.ID == '010060' & Year %in% c(2007:2011)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L5A_CA, T3B_L6_CA, T3B_L1_CA, T3B_L8_CA, T3B_L4_CA, T3B_L12_CA)
+
+namevec <- c("BHCMIS.ID", "Year", "NHA", "NHB", "HL", "NHW", "Total", "Eng2ndLang")
+
+#fins.revenue.expenses <- read_csv("FQHC_Revenue_vs_Expenses.csv")
+#cw <- read_excel("UDS-990 Crosswalk.xlsx")
+```
+
+
+
+
+## Clinic-level in Covariates 
+```{r}
+
+# Table 3B
+
+
+uds.3B.2012 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "Table3B", skip = 0) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L8_Cd, T3b_L12_Ca) %>% rename(T3b_L26_Ca = T3b_L8_Cd)
+uds.3B.2013 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "Table3B", skip = 0) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L8_Cd, T3b_L12_Ca) %>% rename(T3b_L26_Ca = T3b_L8_Cd)
+
+uds.3B.2014 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "Table3B", skip = 0) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L8_Cd, T3b_L12_Ca) %>% rename(T3b_L26_Ca = T3b_L8_Cd)
+uds.3B.2015 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "Table3B", skip = 2) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L8_Cd, T3b_L12_Ca) %>% rename(T3b_L26_Ca = T3b_L8_Cd)
+uds.3B.2016 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "Table3B", skip = 1) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+
+uds.3B.2017 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "Table3B", skip = 1) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+uds.3B.2018 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table3B", skip = 1) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+uds.3B.2019 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "Table3B", skip = 1) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+
+uds.3B.2020 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "Table3B", skip = 1) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+uds.3B.2021 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "Table3B", skip = 0) %>% select(BHCMISID, GrantNumber, T3b_L1_Cb, T3b_L3_Cb, T3b_L8_Ca, T3b_L5_Cb, T3b_L26_Ca, T3b_L12_Ca)
+
+namevec <- c("Year", "BHCMISID", "ModernGranteeID", "NHA", "NHB", "HL", "NHW", "Total", "Eng2ndLang")
+uds.3B <- rbind(cbind(Year = 2012, uds.3B.2012),
+                cbind(Year = 2013, uds.3B.2013),
+                cbind(Year = 2014, uds.3B.2014),
+                  cbind(Year = 2015, uds.3B.2015),
+                  cbind(Year = 2016, uds.3B.2016),
+                  cbind(Year = 2017, uds.3B.2017),
+                  
+                  cbind(Year = 2018, uds.3B.2018),
+                  cbind(Year = 2019, uds.3B.2019), 
+                  cbind(Year = 2020, uds.3B.2020),
+                  cbind(Year = 2021, uds.3B.2021)) %>% 
+  
+  rename_all(vars(namevec), function(x) namevec)
+
+
+
+uds.3B <- rbind(
+  uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(Year %in% c(2007)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L5A_CA, T3B_L6_CA, T3B_L1_CA, T3B_L8_CA, T3B_L4_CA, T3B_L12_CA) %>% 
+    setNames(namevec), 
+  uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(Year %in% c(2008)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L5A_CA, T3B_L6_CA, T3B_L1_CA, T3B_L8_CA, T3B_L4_CA, T3B_L12_CA) %>% 
+    setNames(namevec),
+    uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(Year %in% c(2009)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L1_CB, T3B_L3_CB, T3B_L8_CA, T3B_L5_CB, T3B_L8_CD, T3B_L12_CA) %>% 
+    setNames(namevec), 
+  uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(Year %in% c(2010)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L1_CB, T3B_L3_CB, T3B_L8_CA, T3B_L5_CB, T3B_L8_CD, T3B_L12_CA) %>% 
+    setNames(namevec), 
+  uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  arrange(BHCMIS.ID, Year) %>% 
+  select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  filter(Year %in% c(2011)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T3B_L1_CB, T3B_L3_CB, T3B_L8_CA, T3B_L5_CB, T3B_L8_CD, T3B_L12_CA) %>% 
+    setNames(namevec), 
+  uds.3B)
+uds.3B %>% 
+  arrange(BHCMISID, Year)
+
+
+# Table 4
+uds.4.2012 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "Table4", skip = 0) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2013 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "Table4", skip = 0) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+
+uds.4.2014 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "Table4", skip = 0) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2015 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "Table4", skip = 2) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2016 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "Table4", skip = 1) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+
+uds.4.2017 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "Table4", skip = 1) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2018 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table4", skip = 1) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2019 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "Table4", skip = 1) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+
+uds.4.2020 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "Table4", skip = 1) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+uds.4.2021 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "Table4", skip = 0) %>% select(BHCMISID, GrantNumber, T4_L1_Ca, T4_L2_Ca, T4_L3_Ca, T4_L4_Ca, T4_L5_Ca, T4_L16_Ca, T4_L23_Ca, T4_L7_Ca, T4_L7_Cb, T4_L8_Ca, T4_L8_Cb, T4_L9_Ca, T4_L9_Cb, T4_L10_Ca, T4_L10_Cb, T4_L11_Ca, T4_L11_Cb) 
+
+namevec <- c("Year", "BHCMISID", "ModernGranteeID", "<100%", "101-150%", "151-200%", ">200%", "Unknown", "FarmWorker", "Homeless", 
+             "Uninsured.young", "Uninsured.old", "MCD.young", "MCD.old", "MCR.young", "MCR.old", "OtherPublic.young", "OtherPublic.old", "COM.young", "COM.old")
+uds.4 <- rbind(cbind(Year = 2012, uds.4.2012),
+               cbind(Year = 2013, uds.4.2013),
+               cbind(Year = 2014, uds.4.2014),
+                  cbind(Year = 2015, uds.4.2015),
+                  cbind(Year = 2016, uds.4.2016),
+                  cbind(Year = 2017, uds.4.2017),
+                  
+                  cbind(Year = 2018, uds.4.2018),
+                  cbind(Year = 2019, uds.4.2019), 
+                  cbind(Year = 2020, uds.4.2020),
+                  cbind(Year = 2021, uds.4.2021)) %>% 
+  
+  rename_all(vars(namevec), function(x) namevec)
+
+
+uds.4 <- rbind(
+uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  filter(Year %in% c(2007, 2011)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T4_L1_CA, T4_L2_CA, T4_L3_CA, T4_L4_CA, T4_L5_CA, 
+         T4_L16_CA, T4_L23_CA, 
+         T4_L7_CA, T4_L7_CB, T4_L8_CA, T4_L8_CB, T4_L9_CA, T4_L9_CB, T4_L10_CA, T4_L10_CB, T4_L11_CA, T4_L11_CB) %>% 
+  setNames(namevec), 
+uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  filter(Year %in% c(2008:2010)) %>% 
+  select(Year, BHCMIS.ID, ModernGranteeID, T4_L1_CA, T4_L2_CA, T4_L3_CA, T4_L4_CA, T4_L5_CA, 
+         T4_L16_CA, T4_L23_CA, 
+         T4_L7_CMIA, T4_L7_CMIB, T4_L8_CMIA, T4_L8_CMIB, T4_L9_CMIA, T4_L9_CMIB, T4_L10_CMIA, T4_L10_CMIB, T4_L11_CMIA, T4_L11_CMIB) %>% 
+  setNames(namevec), 
+uds.4)
+
+
+uds.4 %>% 
+  arrange(BHCMISID, Year)
+
+
+
+# Put covariate tables together
+
+uds.covariates <- inner_join(uds.3B, uds.4, by = c("Year","BHCMISID","ModernGranteeID")) 
+
+
+for (i in 4:ncol(uds.covariates)){
+  uds.covariates[,i] <- as.numeric(gsub("-", "", uds.covariates[,i]))
+}
+
+
+#uds.covariates %>% filter(`Grant Number` == "H80CS24200")
+
+for (i in 1:nrow(uds.covariates)){
+  if (!is.na(uds.covariates[i,]$Total)) {
+uds.covariates[i,is.na(uds.covariates[i,])] <- 0
+} 
+}
+
+
+
+uds.covariates <-  uds.covariates %>% 
+    mutate(Pct.NHA = NHA / Total * 100,
+         Pct.NHB = NHB / Total * 100,
+         Pct.HL = HL / Total * 100,
+         Pct.NHW = NHW / Total * 100,
+         Pct.ESL = Eng2ndLang / Total * 100,
+         Pct.LessThan100pctFPL = ifelse(Total == Unknown, 100, `<100%` / (Total- Unknown) * 100),
+         Pct.LessThan200pctFPL = ifelse(Total == Unknown, 100, (`<100%` + `101-150%` + `151-200%`) / (Total - Unknown) * 100),
+         Pct.FarmWorker = FarmWorker / Total * 100,
+         Pct.Homeless = Homeless / Total * 100,
+         Pct.None = (Uninsured.young + Uninsured.old) / Total * 100, 
+         Pct.MCD = (MCD.young + MCD.old) / Total * 100, 
+         Pct.MCR = (MCR.young + MCR.old) / Total * 100, 
+         Pct.COM = (COM.young + COM.old) / Total * 100) %>% 
+    select(Year:ModernGranteeID, Total, Pct.NHA:Pct.COM)
+
+uds.covariates %>% 
+  arrange(BHCMISID, Year)
+
+
+```
+
+
+
+
+## Table 6A
+```{r}
+uds.6a.2011andBefore <- uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6A.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  select(BHCMIS.ID, Year, T6A_L10_CA:T6A_L26D_CB) %>% 
+  filter(Year >= 2010) %>% 
+  rename(BHCMISID = BHCMIS.ID) %>% 
+  rename_all(.funs = toupper)
+
+uds.6a.2012 <- cbind(Year = 2012, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "Table6A", skip = 0)) %>% rename_all(.funs = toupper)
+uds.6a.2013 <- cbind(Year = 2013, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "Table6A", skip = 0)) %>% rename_all(.funs = toupper)
+      
+uds.6a.2014 <- cbind(Year = 2014, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "Table6A", skip = 0)) %>% rename_all(.funs = toupper)
+uds.6a.2015 <- cbind(Year = 2015, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "Table6A", skip = 2)) %>% rename_all(.funs = toupper)
+uds.6a.2016 <- cbind(Year = 2016, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "Table6A", skip = 1)) %>% rename_all(.funs = toupper)
+      
+uds.6a.2017 <- cbind(Year = 2017, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "Table6A", skip = 1)) %>% rename_all(.funs = toupper)
+uds.6a.2018 <- cbind(Year = 2018, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table6A", skip = 1)) %>% rename_all(.funs = toupper)
+uds.6a.2019 <- cbind(Year = 2019, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "Table6A", skip = 1)) %>% rename_all(.funs = toupper)
+      
+uds.6a.2020 <- cbind(Year = 2020, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "Table6A", skip = 1)) %>% rename_all(.funs = toupper)
+uds.6a.2021 <- cbind(Year = 2021, read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "Table6A", skip = 0)) %>% rename_all(.funs = toupper) %>% filter(!is.na(BHCMISID))
+
+uds.6a.2012[,-c(1:3)] <- data.frame(sapply(uds.6a.2012[,-c(1:3)], as.numeric))
+uds.6a.2013[,-c(1:3)] <- data.frame(sapply(uds.6a.2013[,-c(1:3)], as.numeric))
+
+uds.6a.2014[,-c(1:3)] <- data.frame(sapply(uds.6a.2014[,-c(1:3)], as.numeric))
+uds.6a.2015[,-c(1:3)] <- data.frame(sapply(uds.6a.2015[,-c(1:3)], as.numeric))
+uds.6a.2016[,-c(1:3)] <- data.frame(sapply(uds.6a.2016[,-c(1:3)], as.numeric))
+
+uds.6a.2017[,-c(1:3)] <- data.frame(sapply(uds.6a.2017[,-c(1:3)], as.numeric))
+uds.6a.2018[,-c(1:3)] <- data.frame(sapply(uds.6a.2018[,-c(1:3)], as.numeric))
+uds.6a.2019[,-c(1:3)] <- data.frame(sapply(uds.6a.2019[,-c(1:3)], as.numeric))
+
+uds.6a.2020[,-c(1:3)] <- data.frame(sapply(uds.6a.2020[,-c(1:3)], as.numeric))
+uds.6a.2021[,-c(1:3)] <- data.frame(sapply(uds.6a.2021[,-c(1:3)], as.numeric))
+
+uds.6a <- bind_rows(uds.6a.2012, uds.6a.2013, uds.6a.2014,
+      uds.6a.2015, uds.6a.2016, uds.6a.2017, uds.6a.2018, uds.6a.2019, uds.6a.2020, uds.6a.2021, uds.6a.2011andBefore) %>% 
+  arrange(BHCMISID, YEAR) %>% 
+  select(YEAR:T6A_L34_CB)
+
+uds.6a
+```
+
+
+## Table 6B Measures
+```{r}
+
+
+uds.6b.2012 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+uds.6b.2013 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+
+uds.6b.2014 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+uds.6b.2015 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 1) 
+uds.6b.2016 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+
+uds.6b.2017 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+uds.6b.2018 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+uds.6b.2019 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+
+uds.6b.2020 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+uds.6b.2021 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "Table6BClinicalmeasures", skip = 0) 
+
+
+uds.6b.names <- c("BHCMISID","GrantNumber","Imm.Num","Imm.Rate","imm.denom","Pap.Rate","Pap.Num","pap.denom",
+                  "crc.rate","crc.num","crc.denom", 
+                  "ChildBMI.rate","ChildBMI.num","ChildBMI.denom","AdultBMI.rate","AdultBMI.num","AdultBMI.denom", "asthma.rate","asthma.num","asthma.denom", 
+                  "cad.rate","cad.num","cad.denom", "ivd.rate","ivd.num","ivd.denom")
+
+uds.quality.6b <- rbind(
+  cbind(Year = 2012, uds.6b.2012[,c(1:8, 30:32, 9:14, 21:29)] %>% setNames(uds.6b.names)),
+  cbind(Year = 2013, uds.6b.2013[,c(1:8, 30:32, 9:14, 21:29)] %>% setNames(uds.6b.names)),
+  
+  cbind(Year = 2014, uds.6b.2014[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+  cbind(Year = 2015, uds.6b.2015[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+  cbind(Year = 2016, uds.6b.2016[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+
+  cbind(Year = 2017, uds.6b.2017[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+  cbind(Year = 2018, uds.6b.2018[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+  cbind(Year = 2019, uds.6b.2019[,c(1:8, 27:29, 9:14, 18:26)] %>% setNames(uds.6b.names)),
+
+  cbind(Year = 2020, cbind(uds.6b.2020[,c(1:8, 27:29, 12:17)], NA, NA, NA, uds.6b.2020[,c(21:26)]) %>% setNames(uds.6b.names)),
+  cbind(Year = 2021, cbind(uds.6b.2021[,c(1:8, 27:29, 12:17)], NA, NA, NA, uds.6b.2021[,c(21:26)]) %>% setNames(uds.6b.names))) %>% 
+  mutate(imm.rate = as.numeric(Imm.Num) / as.numeric(imm.denom), 
+         pap.rate = as.numeric(Pap.Num) / as.numeric(pap.denom), 
+         imm.denom = as.numeric(imm.denom), 
+         pap.denom = as.numeric(pap.denom), 
+         crc.rate = as.numeric(crc.num) / as.numeric(crc.denom), 
+         crc.denom = as.numeric(crc.denom), 
+         childbmi.rate = as.numeric(as.numeric(ChildBMI.num) / as.numeric(ChildBMI.denom)), 
+         childbmi.denom = as.numeric(ChildBMI.denom),
+         adultbmi.rate = as.numeric(as.numeric(AdultBMI.num) / as.numeric(AdultBMI.denom)), 
+         adultbmi.denom = as.numeric(AdultBMI.denom),
+         asthma.rate = as.numeric(as.numeric(asthma.num) / as.numeric(asthma.denom)), 
+         cad.rate = as.numeric(as.numeric(cad.num) / as.numeric(cad.denom)), 
+         ivd.rate = as.numeric(as.numeric(ivd.num) / as.numeric(ivd.denom)), 
+         ) %>% 
+  select(Year, BHCMISID, GrantNumber, imm.rate, imm.denom, pap.rate, pap.denom, crc.rate, crc.denom, asthma.rate, cad.rate, ivd.rate, childbmi.rate, childbmi.denom, adultbmi.rate, adultbmi.denom) %>% 
+  
+  bind_rows(uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  filter(Year != 2008) %>% 
+    arrange(BHCMIS.ID, Year) %>% 
+  #select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  #filter(BHCMIS.ID == '010060') %>% 
+  select(BHCMIS.ID, Year, T6B_L10_N_CC:T6B_L11_D_CC, T6B_L10_CA:T6B_L11_CC, T6B_L12_CA:T6B_L13_CC) %>% 
+  mutate(imm.rate = ifelse(Year == 2009, T6B_L10_N_CC / T6B_L10_D_CC, 
+                    ifelse(Year %in% c(2010:2011), T6B_L10_CC / T6B_L10_CB, NA)), 
+         imm.denom = ifelse(Year == 2009, T6B_L10_D_CC, 
+                     ifelse(Year %in% c(2010:2011), T6B_L10_CA, NA)),
+         pap.rate = ifelse(Year == 2009, T6B_L11_N_CC / T6B_L11_D_CC, 
+                    ifelse(Year %in% c(2010:2011), T6B_L11_CC / T6B_L11_CB, NA)), 
+         pap.denom = ifelse(Year == 2009, T6B_L11_D_CC, 
+                     ifelse(Year %in% c(2010:2011), T6B_L11_CA, NA)), 
+         childbmi.rate = T6B_L12_CC / T6B_L12_CB, 
+         childbmi.denom = T6B_L12_CA, 
+         adultbmi.rate = T6B_L13_CC / T6B_L13_CB, 
+         adultbmi.denom = T6B_L13_CA ) %>% 
+  select(BHCMIS.ID, Year, imm.rate:adultbmi.denom) %>% 
+  rename(BHCMISID = BHCMIS.ID)) %>% 
+    arrange(BHCMISID, Year) 
+  
+
+## Removes FQHCs that were not open during those first 3 years of the study period
+uds.quality.6b <- uds.quality.6b %>% 
+  inner_join(uds.cw %>% mutate(STATE = toupper(STATE)) %>% unique() %>% mutate(STATE = ifelse(BHCMIS.ID == '010530', 'ME', 
+                                                                                       ifelse(BHCMIS.ID == '090090', 'AZ', STATE))) %>% 
+               select(BHCMIS.ID, STATE) %>% unique(), by = c("BHCMISID" = "BHCMIS.ID"))
+
+
+# uds.cw %>% mutate(STATE = toupper(STATE)) %>% 
+#   select(BHCMIS.ID, STATE)  %>% unique() %>% 
+#   group_by(BHCMIS.ID) %>% 
+#   mutate(row = row_number()) %>% 
+#   group_by(BHCMIS.ID) %>% 
+#   mutate(max.row = max(row)) %>% 
+#   filter(max.row > 1)
+#
+# uds.cw %>% 
+#   mutate(STATE = toupper(STATE)) %>% 
+#   select(BHCMIS.ID, STATE) %>% 
+#   group_by(BHCMIS.ID, STATE) %>% 
+#   summarise(n()) %>% 
+#   filter(BHCMIS.ID %in% c('010530','090090'))
+# 
+# uds.cw %>% filter(BHCMIS.ID == '010530')
+
+
+```
+
+## Table 6B - EHR or Sampling Used
+```{r}
+vec.years <- 2012:2021
+vec.skips <- rep(0, length(vec.years)) 
+vec.skips[c(4)] <- 2
+vec.skips[c(5,6,7,8,9)] <- 1
+vec.files <- paste("//Users/jhm65/Research/CHC Development/UDS/UDS-",vec.years, "-Full-Dataset.xlsx", sep = "")
+
+
+uds.quality.sampling.v.ehr <- uds.cw %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  filter(Year != 2008) %>% 
+    arrange(BHCMIS.ID, Year) %>% 
+  #select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
+  #filter(BHCMIS.ID == '010060') %>% 
+  #select(BHCMIS.ID, Year, T6B_L10_N_CC:T6B_L11_D_CC, T6B_L10_CA:T6B_L11_CC) %>% 
+  select(BHCMIS.ID, Year, T6B_L10_CA, T6B_L10_CB, T6B_L11_CA, T6B_L11_CB, T6B_L12_CA,	T6B_L12_CB, T6B_L13_CA, T6B_L13_CB) %>% 
+  cbind(T6B_L19_CA = NA,	T6B_L19_CB = NA) %>% 
+  rename(YEAR = Year)
+
+
+for (i in 1:length(vec.years)){
+read_excel(vec.files[i], sheet = "Table6B", skip = vec.skips[i])
+temp <- read_excel(vec.files[i], sheet = "Table6B", skip = vec.skips[i])%>% 
+  select(BHCMISID, T6b_L10_Ca, T6b_L10_Cb, T6b_L11_Ca, T6b_L11_Cb, T6B_L19_Ca,	T6B_L19_Cb, T6b_L12_Ca,	T6b_L12_Cb, T6b_L13_Ca, T6b_L13_Cb) %>% 
+    mutate(Year = vec.years[i])
+colnames(temp) <- toupper(colnames(temp))
+colnames(temp)[1] <- "BHCMIS.ID"
+
+
+  uds.quality.sampling.v.ehr <- uds.quality.sampling.v.ehr %>% 
+    rbind(temp) %>% 
+    arrange(BHCMIS.ID, YEAR)
+}
+
+
+uds.quality.sampling.v.ehr <- uds.quality.sampling.v.ehr %>% 
+  mutate(imm.ehr = ifelse(T6B_L10_CA == T6B_L10_CB, 1, 0), 
+         pap.ehr = ifelse(T6B_L11_CA == T6B_L11_CB, 1, 0), 
+         crc.ehr = ifelse(T6B_L19_CA == T6B_L19_CB, 1, 0),
+         childbmi.ehr = ifelse(T6B_L12_CA == T6B_L12_CB, 1, 0), 
+         adultbmi.ehr = ifelse(T6B_L13_CA == T6B_L13_CB, 1, 0)) %>% 
+  mutate(ehr = imm.ehr + pap.ehr + crc.ehr + childbmi.ehr + adultbmi.ehr)
+
+```
+
+
+## Table 7 Clinical Measures
+
+```{r}
+
+
+uds.7.2012 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+uds.7.2013 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+
+uds.7.2014 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+uds.7.2015 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 1) 
+uds.7.2016 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+
+uds.7.2017 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+uds.7.2018 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+uds.7.2019 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+
+uds.7.2020 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 0) 
+uds.7.2021 <- read_excel("//Users/jhm65/Research/CHC Development/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "Table7Clinicalmeasures", skip = 1) 
+
+
+uds.7.names <- c("BHCMISID","GrantNumber","Race","Ethnicity","htn.total","htn.control","dm.total","dm.controlled")
+
+uds.quality.7 <- rbind(
+  cbind(Year = 2012, uds.7.2012[,c(1:6, 8:9)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  cbind(Year = 2013, uds.7.2013[,c(1:6, 8:9)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  
+  cbind(Year = 2014, uds.7.2014[,c(1:6, 8:9)] %>% setNames(uds.7.names)),
+  cbind(Year = 2015, uds.7.2015[,c(1:4, 8:9, 11, 14)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  cbind(Year = 2016, uds.7.2016[,c(1:4, 8:9, 11, 14)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+
+  cbind(Year = 2017, uds.7.2017[,c(1:4, 8:9, 11, 14)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  cbind(Year = 2018, uds.7.2018[,c(1:4, 8:9, 11:12)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  cbind(Year = 2019, uds.7.2019[,c(1:4, 8:9, 11:12)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+
+  cbind(Year = 2020, uds.7.2020[,c(1:4, 8:9, 11:12)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled))),
+  cbind(Year = 2021, uds.7.2021[,c(1:4, 8:9, 11:12)] %>% setNames(uds.7.names) %>% mutate(dm.controlled = as.numeric(dm.total) - as.numeric(dm.controlled)))) %>% 
+  mutate(htn.rate = as.numeric(htn.control) / as.numeric(htn.total), 
+         dm.rate = as.numeric(dm.controlled) / as.numeric(dm.total), 
+         htn.total = as.numeric(htn.total), 
+         dm.total = as.numeric(dm.total)) %>% 
+  select(Year:Ethnicity, htn.total, htn.rate, dm.total, dm.rate) %>% 
+  
+  bind_rows(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table7clin.csv") %>% 
+  select(Year, ModernGranteeID:dm.controlled) %>% 
+  rename(GrantNumber = ModernGranteeID) %>% 
+    mutate(htn.rate = as.numeric(htn.control) / as.numeric(htn.total), 
+         dm.rate = as.numeric(dm.controlled) / as.numeric(dm.total), 
+         htn.total = as.numeric(htn.total), 
+         dm.total = as.numeric(dm.total)) %>% 
+    select(Year:Ethnicity, htn.total, htn.rate, dm.total, dm.rate)) %>% 
+    arrange(GrantNumber, Year, Ethnicity, Race)
+  
+
+## Removes FQHCs that were not open during those first 3 years of the study period
+uds.quality.7 <- uds.quality.7 %>% 
+  inner_join(uds.cw %>% mutate(STATE = toupper(STATE)) %>% unique() %>% mutate(STATE = ifelse(BHCMIS.ID == '010530', 'ME', 
+                                                                                       ifelse(BHCMIS.ID == '090090', 'AZ', STATE))) %>% 
+               select(ModernGranteeID, STATE) %>% unique(), by = c("GrantNumber" = "ModernGranteeID")) %>% 
+  mutate(Race = ifelse(Race == '-', NA, Race),
+         Ethnicity = ifelse(Ethnicity == '-', NA, Ethnicity))
+
+
+uds.quality.7[is.na(uds.quality.7$htn.total),]$htn.total <- 0
+uds.quality.7[is.na(uds.quality.7$htn.rate),]$htn.rate <- 0
+uds.quality.7[is.na(uds.quality.7$dm.total),]$dm.total <- 0
+uds.quality.7[is.na(uds.quality.7$dm.rate),]$dm.rate <- 0
+
+
+uds.quality.7 <- uds.quality.7 %>% 
+   inner_join(uds.cw %>% filter(Year == 2011) %>% unique() %>% select(ModernGranteeID, BHCMIS.ID), by = c("GrantNumber" = "ModernGranteeID")) %>% 
+  arrange(Year, BHCMIS.ID, GrantNumber) %>% 
+  mutate(BHCMISID = ifelse(is.na(BHCMISID), BHCMIS.ID, BHCMISID))
+
+
+uds.quality.7 %>% 
+  filter(Race == " Total" | is.na(Race))%>% 
+  arrange(BHCMISID, Year) %>% 
+  group_by(Year, BHCMISID) %>% 
+  summarise(htn.rate = sum(htn.rate * htn.total) / sum(htn.total), 
+            htn.total = sum(htn.total), 
+            dm.rate = sum(dm.rate * dm.total) / sum(dm.total), 
+            dm.total = sum(dm.total)) %>% 
+  arrange(BHCMISID, Year)
+```
+
+
+```{r}
+# df.apm %>% 
+#   ggplot(aes(x = Year, y = dm.rate)) + geom_point() + geom_smooth()
+
+```
+
+
+## Financials
+```{r}
+cw <- read_excel("/Users/jhm65/Research/CHC Costs/UDS-990 Crosswalk.xlsx")
+
+fins.revenue.expenses <- read.csv("//Users/jhm65/Research/CHC Costs/FQHC_Revenue_vs_Expenses.csv", header = TRUE)
+names(fins.revenue.expenses) <- gsub("^X\\.", "", names(fins.revenue.expenses))
+names(fins.revenue.expenses) <- gsub("\\.\\.", "", names(fins.revenue.expenses))
+
+staffing <- read.csv("/Users/jhm65/Research/CHC Costs/FQHC_Staffing.csv")
+
+
+fins.revenue.expenses <- uds.cw %>% filter(Year == 2011) %>% unique() %>% select(ModernGranteeID, BHCMIS.ID) %>% 
+  left_join(cw, by = c("ModernGranteeID" = "Grant Number")) %>% 
+  left_join(fins.revenue.expenses, by = c("EIN" = "EIN")) %>% 
+  select(ModernGranteeID:EIN, form_year:fringe_rate) %>% 
+  left_join(staffing %>% select(EIN:Staff), by = c("EIN","form_year" = "Year"))
+```
+
+
+## APM History
+
+```{r}
+apm.history <- read_excel("APM_History.xlsx") %>% 
+  mutate(Class = ifelse(is.na(Year), "0 - Control", Classification))
+
+```
+
+## Full dataset
+
+```{r}
+
+included.years <- 2009:2021
+included.treat <- 2013:2021
+
+## Broader definitions 5 / 7 quality measures significant improvements overall
+# included.years <- 2009:2021
+# included.treat <- 2013:2021
+
+## Original good filters
+# included.years <- 2009:2019
+# included.treat <- 2013:2019
+
+
+df.apm <- uds.covariates %>% 
+  select(Year:BHCMISID, Total:Pct.COM) %>% 
+  inner_join(uds.cw %>% select(BHCMIS.ID, STATE) %>% 
+               mutate(STATE = toupper(STATE)) %>% 
+               unique() %>% mutate(STATE = ifelse(BHCMIS.ID == '010530', 'ME', ifelse(BHCMIS.ID == '090090', 'AZ', STATE))) %>% unique(), by = c("BHCMISID" = "BHCMIS.ID")) %>% 
+  select(BHCMISID, Year, STATE, Total:Pct.COM) %>% 
+  arrange(BHCMISID, Year) %>% 
+  left_join(uds.6a, by = c("BHCMISID","Year" = "YEAR")) %>% 
+  left_join(uds.quality.6b %>% select(Year, BHCMISID, imm.rate:adultbmi.denom), by = c("BHCMISID","Year")) %>% 
+  left_join(uds.quality.7 %>% 
+  filter(Race == " Total" | is.na(Race)) %>% 
+  group_by(Year, BHCMISID) %>% 
+  summarise(htn.rate = sum(htn.rate * htn.total) / sum(htn.total), 
+            htn.total = sum(htn.total), 
+            dm.rate = sum(dm.rate * dm.total) / sum(dm.total), 
+            dm.total = sum(dm.total)) %>% 
+  arrange(BHCMISID, Year), by = c("BHCMISID","Year")) %>% 
+    left_join(fins.revenue.expenses, by = c("BHCMISID" = "BHCMIS.ID", "Year" = "form_year")) %>% 
+  inner_join(apm.history %>% rename(att = Year), by = c("STATE" = "Postal Code")) %>% 
+  ungroup() %>% 
+  mutate(att = ifelse(is.na(att), 0, att)) %>% 
+  mutate(ID = as.numeric(as.factor(BHCMISID))) %>% 
+  arrange(BHCMISID) %>% 
+  mutate(ACA = ifelse((STATE %in% c('MI','NH') & Year >= 2014) |
+                    (STATE %in% c('PA','IN','AK') & Year >= 2015) |
+                    (STATE %in% c('MT','LA') & Year >= 2016) |
+                    (STATE %in% c('VA','ME') & Year >= 2019) |
+                    (STATE %in% c('ID','UT','NE') & Year >= 2020) |
+                    (STATE %in% c('OK','MO') & Year >= 2021) |
+                    (STATE %in% c('AZ','AR','CA','CO','CT','DE','DC','HI','IL','IA','KY','MD','MA','MN','NV','NJ','NM','NY','ND','OH','OR','PA','RI','VT','VA','WA') & Year >= 2014), 1, 0))
+
+class.vec <- rep(sort(unique(df.apm$Classification)), table(df.apm$Classification))
+
+
+set.seed(123) #432
+
+df.apm <- df.apm %>% 
+  group_by(ID) %>% 
+  mutate(Class.random = ifelse(Class == "0 - Control", sample(class.vec, size = 1, replace = T), Class), 
+         att.random = ifelse(Class == "0 - Control", sample(included.treat, size = 1, replace = T), att)) %>% 
+                                 mutate(Tx = ifelse(Year >= att & att > 0, 1, 0)) %>% 
+  filter((att == 0 | att %in% included.treat) & Year %in% included.years) %>% 
+  mutate(year.rel = as.factor(ifelse(att.random > 0, Year - att.random, NA)), 
+         Treatment = ifelse(att > 0, 1, 0)) %>% 
+  select(BHCMISID:STATE, Name:ID, ACA:Treatment, Total:dm.total, fs_contributions:Staff) 
+
+df.apm <- df.apm %>% 
+  left_join(df.apm %>% 
+  group_by(BHCMISID) %>% 
+  summarise(counts = n()) %>% filter(counts == 13), by = c("BHCMISID")) %>% 
+  group_by(BHCMISID) %>% 
+  mutate(closed = ifelse(is.na(counts) & Year == max(Year), 1, 0)) #%>%  filter(APM %in% c('Yes','No'))
+
+df.apm$year.rel <- relevel(as.factor(df.apm$year.rel), ref = "-1") 
+
+## Filter for balanced panel, remove closures and late openings
+df.apm <- df.apm %>%
+  left_join(df.apm %>% summarise(Counts = n()), by = c("BHCMISID")) %>%
+  filter(Counts == length(included.years))
+
+## Remove some weird shit in CT
+df.apm <- df.apm %>% 
+  filter(BHCMISID != "01E00010")
+```
+
+
+# Cleaned Up Analysis
+
+
+
+## Sample Population
+
+```{r}
+
+## Number of States
+df.apm %>% 
+  ungroup() %>% 
+  select(STATE, Name, Classification) %>% 
+  unique() %>% 
+  arrange(Name)
+
+
+## Mapping
+
+p.map <- plot_usmap(data = df.apm %>% 
+  ungroup() %>% 
+  select(Name, STATE, Class, Treatment) %>% 
+    rename(state = STATE) %>% 
+  unique() %>% 
+  arrange(Name), values = "Class", regions = "state", color = "white", size = 0.3) + 
+  #scale_fill_discrete(type = "viridis", aes(alpha = I(Treatment + 0.5))) + 
+  labs(title = "By APM Class") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+p.map.rollout <- plot_usmap(data = df.apm %>% 
+  ungroup() %>% 
+  select(Name, STATE, att, Treatment) %>% 
+    #filter(att > 0) %>% 
+    rename(state = STATE) %>% 
+    mutate(YearRollout = ifelse(att == 0, "Control", att)) %>% 
+  unique() %>% 
+  arrange(Name), values = "YearRollout", regions = "state", color = "grey", size = 0.3) + 
+  scale_fill_brewer(palette="BrBG") + 
+  labs(title = "By Rollout Year") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+p.maps <- ggarrange(p.map + theme(legend.position="bottom"), p.map.rollout + theme(legend.position="bottom"))
+
+annotate_figure(p.maps, top = text_grob("US States in Sample", face = "bold", size = 14))
+
+## Demographics
+df.apm %>% 
+  ungroup() %>% 
+  filter(Year == 2010) %>% 
+  select(Class, Total:Pct.COM) %>% 
+  tbl_summary(by = Class, 
+              missing = "no", # don't list missing data separately
+      statistic = all_continuous() ~ "{mean} ({sd})",
+      digits = all_continuous() ~ c(2,2)
+    )
+
+df.apm %>% 
+  ungroup() %>% 
+  filter(Year == 2010) %>% 
+  select(Treatment, Total:Pct.COM) %>% 
+  mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated")) %>% 
+  tbl_summary(by = Treatment, 
+              missing = "no", # don't list missing data separately
+      statistic = all_continuous() ~ "{mean} ({sd})",
+      digits = all_continuous() ~ c(2,2)
+    ) %>% 
+  add_p
+  
+dim(table(df.apm$att, df.apm$STATE))
+
+```
+
+
+## Demographics
+
+```{r}
+
+df.apm.demo <- df.apm %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.random, Total:Pct.COM) %>% 
+  mutate(MCD = Total * Pct.MCD / 100, 
+         None = Total * Pct.None / 100, 
+         MCR = Total * Pct.MCR / 100, 
+         COM = Total * Pct.COM / 100)
+
+
+demo.results <- c(0,0,0,0)
+demo.all <- c(0,0,0,0)
+
+for (i in 7:ncol(df.apm.demo)){
+  
+  df.temp <- df.apm.demo[,c(1:6, i)]
+  names(df.temp)[7] <- 'Outcome'
+  model_feols_clustered <- feols(Outcome ~ Tx | Year + ID, cluster = ~ ID, data = df.temp , split = ~Class.random)
+  demo.results <- rbind( demo.results, 
+                            model_feols_clustered[[1]]$coeftable, 
+                            model_feols_clustered[[2]]$coeftable, 
+                            model_feols_clustered[[3]]$coeftable, 
+                            model_feols_clustered[[4]]$coeftable, 
+                            model_feols_clustered[[5]]$coeftable)
+    model_feols_clustered <- feols(Outcome ~ Tx | Year + ID, cluster = ~ ID, data = df.temp )
+    demo.all <- rbind( demo.all, model_feols_clustered$coeftable)
+  
+}
+
+
+demo.results <- cbind(Outcome = rep(colnames(df.apm.demo)[7:ncol(df.apm.demo)], each = 5), 
+                         APM = rep(c("1 - Medicaid Managed Care","2 - At-cost reimbursement","3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), ncol(df.apm.demo) - 6), round(data.frame(demo.results[-1,]), 2))
+
+demo.all <- cbind(Outcome = colnames(df.apm.demo)[7:ncol(df.apm.demo)], round(data.frame(demo.all[-1,]), 2))
+
+
+model_feols_clustered <- feols(MCD ~ Tx | Year + ID, cluster = ~ ID, data = df.apm.demo, split = ~Class.random)
+summary(model_feols_clustered)
+
+demo.results %>% 
+  select(Outcome, APM, Estimate) %>% 
+  pivot_wider(id_cols = Outcome, names_from = APM, values_from = Estimate) %>% 
+  left_join(demo.results %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  select(Outcome, APM, `95% CI`) %>% 
+  pivot_wider(id_cols = Outcome, names_from = APM, values_from = `95% CI`), by = c("Outcome")) %>% select(Outcome, order(colnames(.))) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 5))) %>%
+  add_header_above(c(" " = 1, "Managed Care" = 2, "At-cost Reimbursement" = 2, "Rebased Per-visit bundle" = 2, "PMPM Plus Quality Incentives" = 2, "Base Rate Plus Quality Incentives" = 2)) %>% 
+  kable_styling(latex_options = c("striped"))
+
+demo.all
+```
+
+
+
+
+## Better Quality Analysis
+
+```{r}
+df.apm.quality2 <- df.apm %>% 
+  #filter(Class == "0 - Control" | FullParticip == 0) %>% 
+  #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
+  #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
+  #filter(att %in% c(0, 2016:2021)) %>% 
+  select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) 
+
+quality.all <- c(0,0,0,0)
+
+for (i in 8:14){
+  
+  df.temp <- df.apm.quality2[,c(1:7, i, 15:27)]
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.all <- rbind(quality.all, static$coeftable)
+  
+}
+
+quality.all <- cbind(Outcome = c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), round(data.frame(quality.all[-1,]), 2))
+
+rownames(quality.all) <- NULL
+
+
+df.apm %>% 
+  mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  select(Post, Treatment, imm.rate:dm.rate) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(imm.rate = mean(imm.rate, na.rm = TRUE), 
+            pap.rate = mean(pap.rate, na.rm = TRUE), 
+            crc.rate = mean(crc.rate, na.rm = TRUE), 
+            childbmi.rate = mean(childbmi.rate, na.rm = TRUE), 
+            adultbmi.rate = mean(adultbmi.rate, na.rm = TRUE), 
+            
+            htn.rate = mean(htn.rate, na.rm = TRUE), 
+            dm.rate = mean(dm.rate, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(imm.rate:dm.rate)) %>% 
+  mutate(value = round(value * 100, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  cbind(quality.all) %>% 
+  select(Outcome, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         `% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+  select(Outcome:Estimate, `95% CI`, `% Change`) %>% 
+  filter(Outcome != "2yo Immunizations") %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) %>% 
+  add_header_above(c(" " = 1, "Control" = 2, "Treated" = 2, " " = 1, "Staggered DID" = 3))
+
+
+
+
+## Quality Analysis by APM Class
+
+APM.class <- c("0 - Control","1 - Medicaid Managed Care","2 - At-cost reimbursement","3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus")
+APM.class.grouped <- c(1, 2, 3)
+quality.class <- c(0,0,0,0)
+
+for (i in 8:14){
+  for (k in 2:length(APM.class.grouped)){
+  df.temp <- df.apm.quality2[,c(1:7, i, 15:28)] %>% 
+    #filter(Class %in% APM.class[c(1,k)])
+    filter(Class.Grouped %in% APM.class.grouped[c(1, k)])
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.class <- rbind(quality.class, static$coeftable)
+  }
+}
+
+rownames(quality.class) <- NULL
+
+
+quality.class <- cbind(Outcome = rep(c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), each = 2), Class = rep(APM.class.grouped[-1], 7), round(data.frame(quality.class[-1,]), 2))
+
+quality.class[-c(1:2),] %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  pivot_wider(id_cols = Outcome, names_from = Class, values_from = c(Estimate, `95% CI`)) %>% 
+  select(Outcome, Estimate_2, `95% CI_2`, Estimate_3, `95% CI_3`) %>% 
+    kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "Cost-focused APMs" = 2, "Quality-focus APMs" = 2)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) 
+
+
+
+
+
+
+quality.class.plot <- ggplot(data=quality.class[-c(1,2),]%>% 
+                               mutate(LB = Estimate - 1.95 * Std..Error, 
+                                      UB = Estimate + 1.95 * Std..Error, 
+                                      Class = ifelse(Class == 2, "Cost-focused APM", "Quality-focused APM"),
+                                      Measure = ifelse(Outcome %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")), aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
+geom_point() + 
+
+#this changes the features of the overall effects
+#one could resize, reshape, or recolor these points if desired
+xlab("Staggered 2-way DID Estimates") + 
+ylab(NULL) + 
+#adds the CIs
+geom_errorbarh(height=.1) +
+
+#sets the scales
+#note that I reverse the y axis to correctly order the effect #sizes based on my index variable
+#scale_x_continuous(limits=c(-2.5,1), breaks = c(-2.5:1), name=xname)+
+#scale_y_continuous(name = "", breaks=1:9, labels = t9.forest$X1, trans="reverse")+
+
+#adding a vertical line at the effect = 0 mark
+geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5)+
+
+#faceting based on my subgroups
+  #facet_wrap(~X1) +
+facet_grid(Measure~Class, scales= "free_y", switch = 'y', space = "free_y") +
+ 
+
+#thematic stuff
+#ggtitle("Figure 3 - ATT Estimates by SubGroups")+
+theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQHC Performance, by APM Class")
+
+quality.class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12))
+  
+```
+
+## Participation and Medicaid Analyses - Overall Effects
+
+```{r}
+
+title.vec <- c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus")
+
+df.apm.mcd <- df.apm.quality2 %>% 
+  ungroup() %>% 
+  left_join(df.apm %>% select(BHCMISID, FullParticip) %>% unique(), by = c("BHCMISID")) %>% 
+  mutate(MCD.filter = ifelse(Pct.MCD >= median(df.apm.quality2$Pct.MCD, na.rm = TRUE), 1, 0)) %>% 
+  select(imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Year, ID, Tx, Pct.NHA:Pct.MCR, Class.Grouped, FullParticip, MCD.filter)
+
+
+## MEdicaid Split
+out.qual.agg.mcd <- data.frame(V1 = 0, g = 0, Estimate = 0, Std..Error = 0, t.value = 0, Pr...t.. = 0)
+
+for (g in 0:1){
+for (i in 2:7){
+ df.temp <- df.apm.mcd[,c(i, 8:25)] %>% 
+   #filter(Class.Grouped == 1 | FullParticip == g)
+   filter(MCD.filter == g)
+  names(df.temp)[1] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+out.qual.agg.mcd <- rbind(out.qual.agg.mcd, data.frame(cbind(title.vec[i], g, out.qual$coeftable)))
+
+}}
+
+out.qual.agg.mcd[-1,] %>% 
+                               mutate(Estimate = round(as.numeric(Estimate), 2), Std..Error = as.numeric(Std..Error)) %>% 
+                               mutate(LB = round(Estimate - 1.95 * Std..Error, 2), 
+                                      UB = round(Estimate + 1.95 * Std..Error, 2), 
+                                      Class = ifelse(g == 1, "Above Median", "Below Median"),
+                                      Measure = ifelse(V1 %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")) %>% 
+  mutate(`95% CI` = paste("(", `LB`, ", ", `UB`, ")", sep = "")) %>% 
+  pivot_wider(id_cols = c(V1, Measure), names_from = Class, values_from = c(Estimate,`95% CI`)) %>% 
+  select(V1, `Estimate_Below Median`, `95% CI_Below Median`, `Estimate_Above Median`, `95% CI_Above Median`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "Below Median" = 2, "Above Median" = 2)) %>% 
+  add_header_above(c(" " = 1, "Proportion of FQHC Pats in Medicaid" = 4)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) 
+  
+
+## Participation Split
+out.qual.agg.particp <- data.frame(V1 = 0, g = 0, Estimate = 0, Std..Error = 0, t.value = 0, Pr...t.. = 0)
+
+for (g in 0:1){
+for (i in 2:7){
+ df.temp <- df.apm.mcd[,c(i, 8:25)] %>% 
+   filter(Class.Grouped == 1 | FullParticip == g)
+   #filter(MCD.filter == k)
+  names(df.temp)[1] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+out.qual.agg.particp <- rbind(out.qual.agg.particp, data.frame(cbind(title.vec[i], g, out.qual$coeftable)))
+
+}}
+
+out.qual.agg.particp[-1,] %>% 
+                               mutate(Estimate = round(as.numeric(Estimate), 2), Std..Error = as.numeric(Std..Error)) %>% 
+                               mutate(LB = round(Estimate - 1.95 * Std..Error, 2), 
+                                      UB = round(Estimate + 1.95 * Std..Error, 2), 
+                                      Class = ifelse(g == 1, "Above Median", "Below Median"),
+                                      Measure = ifelse(V1 %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")) %>% 
+  mutate(`95% CI` = paste("(", `LB`, ", ", `UB`, ")", sep = "")) %>% 
+  pivot_wider(id_cols = c(V1, Measure), names_from = Class, values_from = c(Estimate,`95% CI`)) %>% 
+  select(V1, `Estimate_Below Median`, `95% CI_Below Median`, `Estimate_Above Median`, `95% CI_Above Median`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "Partial" = 2, "Full Uptake" = 2)) %>% 
+  add_header_above(c(" " = 1, "State-level Medicaid APM Uptake" = 4)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) 
+
+```
+
+
+
+
+
+
+## Participation and Medicaid Analyses - Event Study
+```{r}
+
+title.vec <- c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus")
+
+df.apm.es.temp <- df.apm %>% 
+  left_join(df.apm %>% filter(year.rel == -1) %>% mutate(MCD.filter = ifelse(Pct.MCD >= median(df.apm.quality2$Pct.MCD), 1, 0)) %>% select(MCD.filter), by = c("BHCMISID")) %>% 
+  #filter(Class == "0 - Control" | FullParticip == 1) %>% 
+                          #filter(Year != 2011) %>% 
+                          mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+                        #  filter(Class.Grouped %in% c(1, 2, 3)) %>% 
+  ungroup() %>% 
+  select(imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, att, Year, ID, Tx, Pct.NHA:Pct.MCR, Class.Grouped, FullParticip, MCD.filter)
+
+
+out.qual.es <- data.frame(V1 = 0, g = 0, estimator = 0, term = 0, estimate = 0, std.error = 0)
+
+
+for (g in 0:1){
+for (i in 2:7){
+ df.temp <- df.apm.es.temp[,c(i, 8:26)] %>% 
+    #filter(Class.Grouped == 1 | FullParticip == g)
+    filter(MCD.filter == g)
+  names(df.temp)[1] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- event_study(data = df.temp, 
+  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR)
+out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], g, out.qual))
+
+
+}}
+
+p.es.all <- out.qual.es[-1,] %>% 
+  #filter(estimator != "Callaway and Sant'Anna (2020)") %>% 
+  filter(estimator == "Gardner (2021)" & V1 != "2yo Immunizations") %>% 
+  arrange(g) %>% 
+  #mutate(g = ifelse(g == 1, "FQHC ever participated in APM", "FQHC may not have ever participated in APM")) %>% 
+  mutate(g = ifelse(g == 1, "Above Median", "Below Median")) %>% 
+  filter(abs(term) <= 7) %>% 
+  ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
+  #facet_wrap(~V1 + g, scales = "free_y",ncol = 2) + 
+  facet_grid(V1~g, scales= "free_y", switch = 'y') + 
+  theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + 
+  theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines"))
+
+p.es.all
+
+
+nrow(df.apm.es.temp %>% filter(FullParticip %in% c(0, 1) | Class.Grouped == 1)) / nrow(df.apm.es.temp )
+
+```
+
+
+
+
+## Participation and Medicaid Rates - interaction
+
+```{r}
+
+## Both Medicaid and Participation splits
+out.qual.agg.particp.mcd <- data.frame(V1 = 0, g = 0, k = 0, Estimate = 0, Std..Error = 0, t.value = 0, Pr...t.. = 0)
+
+for (k in 0:1){
+for (g in 0:1){
+for (i in 2:7){
+ df.temp <- df.apm.mcd[,c(i, 8:25)] %>% 
+   filter(Class.Grouped == 1 | FullParticip == g) %>% 
+   filter(MCD.filter == k)
+  names(df.temp)[1] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+out.qual.agg.particp.mcd <- rbind(out.qual.agg.particp.mcd, data.frame(cbind(title.vec[i], g, k, out.qual$coeftable)))
+
+}}}
+
+
+
+out.qual.agg.particp.mcd.p <- out.qual.agg.particp.mcd[-1,] %>% 
+                               mutate(Estimate = round(as.numeric(Estimate), 2), Std..Error = as.numeric(Std..Error)) %>% 
+                               mutate(LB = round(Estimate - 1.95 * Std..Error, 2), 
+                                      UB = round(Estimate + 1.95 * Std..Error, 2), 
+                                      MCD = ifelse(k == 1, "Above Median", "Below Median"), 
+                                      Participation = ifelse(g == 1, "Full", "Partial"),
+                                      Class = paste(MCD, " - ", Participation, sep = ""),
+                                      Measure = ifelse(V1 %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")) %>% 
+  ggplot(aes(x=Class, y=Estimate, ymin=LB, ymax=UB)) + 
+  geom_point() + 
+
+#this changes the features of the overall effects
+#one could resize, reshape, or recolor these points if desired
+ylab("Staggered 2-way DID Estimates") + 
+xlab("Subsample") + 
+#adds the CIs
+  geom_errorbar(width=.1) + 
+#geom_errorbarh(height=.1) +
+
+#sets the scales
+#note that I reverse the y axis to correctly order the effect #sizes based on my index variable
+#scale_x_continuous(limits=c(-2.5,1), breaks = c(-2.5:1), name=xname)+
+#scale_y_continuous(name = "", breaks=1:9, labels = t9.forest$X1, trans="reverse")+
+
+#adding a vertical line at the effect = 0 mark
+geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) +
+  facet_wrap(~V1, scales = "free_y") + 
+
+#faceting based on my subgroups
+  #facet_wrap(~X1) +
+  theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQHC Performance, by APM Class")
+
+out.qual.agg.particp.mcd.p
+
+
+
+
+
+
+## with Quality Composite
+out.qual.agg.particp.mcd.comp <- data.frame(V1 = 0, g = 0, k = 0, Estimate = 0, Std..Error = 0, t.value = 0, Pr...t.. = 0)
+
+for (k in 0:1){
+for (g in 0:1){
+ df.temp <- df.apm.mcd %>% 
+   filter(Class.Grouped == c(1) | FullParticip == g) %>% 
+   filter(MCD.filter == k) %>% 
+   mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate + htn.rate + dm.rate) / 6)
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+out.qual.agg.particp.mcd.comp <- rbind(out.qual.agg.particp.mcd.comp, data.frame(cbind("Composite", g, k, out.qual$coeftable)))
+
+}}
+
+out.qual.agg.composite.p <- out.qual.agg.particp.mcd.comp[-1,] %>% 
+                               mutate(Estimate = round(as.numeric(Estimate), 2), Std..Error = as.numeric(Std..Error)) %>% 
+                               mutate(LB = round(Estimate - 1.95 * Std..Error, 2), 
+                                      UB = round(Estimate + 1.95 * Std..Error, 2), 
+                                      MCD = ifelse(k == 1, "Above Median", "Below Median"), 
+                                      Participation = ifelse(g == 1, "Full", "Partial"),
+                                      Class = paste(MCD, " - ", Participation, sep = ""),
+                                      Measure = ifelse(V1 %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")) %>% 
+ggplot(aes(x=Class, y=Estimate, ymin=LB, ymax=UB)) + 
+  geom_point() + 
+
+#this changes the features of the overall effects
+#one could resize, reshape, or recolor these points if desired
+ylab("Staggered 2-way DID Estimates") + 
+xlab("Medicaid Proportion - APM Uptake across FQHCs in state") + 
+#adds the CIs
+  geom_errorbar(width=.1) + 
+#geom_errorbarh(height=.1) +
+
+#sets the scales
+#note that I reverse the y axis to correctly order the effect #sizes based on my index variable
+#scale_x_continuous(limits=c(-2.5,1), breaks = c(-2.5:1), name=xname)+
+#scale_y_continuous(name = "", breaks=1:9, labels = t9.forest$X1, trans="reverse")+
+
+#adding a vertical line at the effect = 0 mark
+geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + 
+    theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQHC Performance, by APM Class")
+
+out.qual.agg.composite.p
+
+
+
+
+
+## Quality Composition - by Medicaid Rate, Uptake, and APM type
+out.qual.agg.particp.mcd.comp <- data.frame(V1 = 0, t = 0, g = 0, k = 0, Estimate = 0, Std..Error = 0, t.value = 0, Pr...t.. = 0)
+
+for (t in 2:3){
+for (k in 0:1){
+for (g in 0:1){
+ df.temp <- df.apm.mcd %>% 
+   filter(Class.Grouped == c(1,t) | FullParticip == g) %>% 
+   filter(MCD.filter == k) %>% 
+   mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate + htn.rate + dm.rate) / 6)
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+out.qual.agg.particp.mcd.comp <- rbind(out.qual.agg.particp.mcd.comp, data.frame(cbind("Composite", t, g, k, out.qual$coeftable)))
+
+}}}
+
+out.qual.agg.composite.p <- out.qual.agg.particp.mcd.comp[-1,] %>% 
+                               mutate(Estimate = round(as.numeric(Estimate), 2), Std..Error = as.numeric(Std..Error)) %>% 
+                               mutate(LB = round(Estimate - 1.95 * Std..Error, 2), 
+                                      UB = round(Estimate + 1.95 * Std..Error, 2), 
+                                      `APM Class` = ifelse(t == 2, "Cost-focused","Quality-focused"),
+                                      MCD = ifelse(k == 1, "Above Median", "Below Median"), 
+                                      Participation = ifelse(g == 1, "Full", "Partial"),
+                                      Class = paste(MCD, " - ", Participation, sep = ""),
+                                      Measure = ifelse(V1 %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes", "Process Quality")) %>% 
+ggplot(aes(x=Class, y=Estimate, ymin=LB, ymax=UB, color = `APM Class`)) + 
+  geom_point(position = position_dodge(0.2)) + 
+
+#this changes the features of the overall effects
+#one could resize, reshape, or recolor these points if desired
+ylab("Staggered 2-way DID Estimates") + 
+xlab("Medicaid Proportion - APM Uptake across FQHCs in state") + 
+#adds the CIs
+  geom_errorbar(width=.1, position = position_dodge(0.2)) + 
+#geom_errorbarh(height=.1) +
+
+#sets the scales
+#note that I reverse the y axis to correctly order the effect #sizes based on my index variable
+#scale_x_continuous(limits=c(-2.5,1), breaks = c(-2.5:1), name=xname)+
+#scale_y_continuous(name = "", breaks=1:9, labels = t9.forest$X1, trans="reverse")+
+
+#adding a vertical line at the effect = 0 mark
+geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + 
+    theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQHC Performance, by APM Class")
+
+out.qual.agg.composite.p
+
+
+df.apm.mcd %>% 
+  filter(Class.Grouped != 1) %>% 
+   group_by(Class.Grouped, FullParticip, MCD.filter) %>% 
+  summarise(mean(Pct.MCD))
+```
+
+
+
+
+## Change in Prevalence
+```{r}
+
+
+df.apm.quality3 <- df.apm %>% 
+  #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
+  #filter(att %in% c(0, 2016:2021)) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, 
+                      imm.denom, pap.denom, crc.denom, childbmi.denom, adultbmi.denom, htn.total, dm.total, Total, att.random, Treatment) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+        #filter(Class %in% c("0 - Control","1 - Medicaid Managed Care","2 - At-cost reimbursement")) %>%
+        mutate(imm.prev = imm.denom / Total, 
+               pap.prev = pap.denom / Total, 
+               crc.prev = crc.denom / Total, 
+               childbmi.prev = childbmi.denom / Total, 
+               adultbmi.prev = adultbmi.denom / Total, 
+               htn.prev = htn.total / Total,
+               dm.prev = dm.total / Total) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, imm.prev:dm.prev, Pct.NHA:Pct.COM, att.random, Treatment)
+
+quality.prev <- c(0,0,0,0)
+
+for (i in 8:14){
+  
+  df.temp <- df.apm.quality3[,c(1:7, i, 15:27)]
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.prev <- rbind(quality.prev, static$coeftable)
+  
+}
+
+quality.prev <- cbind(Outcome = c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), round(data.frame(quality.prev[-1,]), 2))
+
+rownames(quality.prev) <- NULL
+
+
+df.apm.quality3 %>% 
+  mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  select(Post, Treatment, imm.prev:dm.prev) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(imm.prev = mean(imm.prev, na.rm = TRUE), 
+            pap.prev = mean(pap.prev, na.rm = TRUE), 
+            crc.prev = mean(crc.prev, na.rm = TRUE), 
+            childbmi.prev = mean(childbmi.prev, na.rm = TRUE), 
+            adultbmi.prev = mean(adultbmi.prev, na.rm = TRUE), 
+            
+            htn.prev = mean(htn.prev, na.rm = TRUE), 
+            dm.prev = mean(dm.prev, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(imm.prev:dm.prev)) %>% 
+  mutate(value = round(value * 100, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  cbind(quality.prev) %>% 
+  select(Outcome, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         `% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+  select(Outcome:Estimate, `95% CI`, `% Change`) %>% 
+  filter(Outcome != "2yo Immunizations") %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) %>% 
+  add_header_above(c(" " = 1, "Control" = 2, "Treated" = 2, " " = 1, "Staggered DID" = 3))
+
+
+
+
+APM.class <- c("0 - Control","1 - Medicaid Managed Care","2 - At-cost reimbursement","3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus")
+APM.class.grouped <- c(1, 2, 3)
+quality.prev.class <- c(0,0,0,0)
+
+for (i in 8:14){
+  for (k in 2:length(APM.class.grouped)){
+  df.temp <- df.apm.quality3[,c(1:7, i, 15:27)] %>% 
+    #filter(Class %in% APM.class[c(1,k)])
+    filter(Class.Grouped %in% APM.class.grouped[c(1, k)])
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.prev.class <- rbind(quality.prev.class, static$coeftable)
+  }
+}
+
+rownames(quality.prev.class) <- NULL
+
+
+quality.prev.class <- cbind(Outcome = rep(c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), each = 2), Class = rep(APM.class.grouped[-1], 7), round(data.frame(quality.prev.class[-1,]), 2))
+
+quality.prev.class %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  pivot_wider(id_cols = Outcome, names_from = Class, values_from = c(Estimate, `95% CI`)) %>% 
+  select(Outcome, Estimate_2, `95% CI_2`, Estimate_3, `95% CI_3`) %>% 
+    kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "Cost-focused APMs" = 2, "Quality-focus APMs" = 2)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Process Quality" = 5, "Health Outcomes" = 2)) 
+
+
+
+```
+
+
+
+
+
+## Clinical Complexity Change
+```{r}
+
+df.apm.clincomp <- df.apm %>% 
+  select(BHCMISID:Total, T6A_L1AND2_CA:T6A_L34_CB) %>% 
+  mutate(HIV.prev = T6A_L1AND2_CB / Total * 100, 
+         HIV.care = T6A_L1AND2_CA / T6A_L1AND2_CB,
+         
+         HepC.prev = T6A_L4B_CB / Total * 100, 
+         HepC.care = T6A_L4B_CA / T6A_L4B_CB,
+         
+         Asthma.prev = T6A_L5_CB / Total * 100, 
+         Asthma.care = T6A_L5_CA / T6A_L5_CB, 
+         
+         # AbnormalPap.prev = T6A_L8_CB / Total * 100, 
+         # AbnormalPap.care = T6A_L8_CA / T6A_L8_CB, 
+         # 
+         # ImmunizationsGiven.prev = T6A_L24_CB / Total * 100, 
+         # ImmunizationsGiven.care = T6A_L24_CA / T6A_L24_CB,
+         
+         HeartDisease.prev = T6A_L10_CB / Total * 100, 
+         HeartDisease.care = T6A_L10_CA / T6A_L10_CB,
+         
+         OverweightOrObesity.prev = T6A_L14A_CB / Total * 100, 
+         OverweightOrObesity.care = T6A_L14A_CA / T6A_L14A_CB, 
+         
+         Depression.prev = T6A_L19A_CB / Total * 100, 
+         Depression.care = T6A_L19A_CA / T6A_L19A_CB, 
+         
+         Diabetes.prev = T6A_L9_CB / Total * 100, 
+         Diabetes.care = T6A_L9_CA / T6A_L9_CB, 
+         
+         Hypertension.prev = T6A_L11_CB / Total * 100, 
+         Hypertension.care = T6A_L11_CA / T6A_L11_CB) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, HIV.prev:Hypertension.care, Pct.NHA:Pct.COM, att.random, Treatment) # %>% filter(Class.Grouped %in% c(1,2))
+
+vecs <- c(8:23)
+vecs2 <- c((max(vecs) + 1):ncol(df.apm.clincomp))
+
+clincomp.prev <- c(0,0,0,0)
+
+for (i in vecs){
+  
+  df.temp <- df.apm.clincomp[,c(1:7, i, vecs2)]
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    clincomp.prev <- rbind(clincomp.prev, static$coeftable)
+  
+}
+
+clincomp.prev <- cbind(Outcome = colnames(df.apm.clincomp)[c(vecs)], round(data.frame(clincomp.prev[-1,]), 2))
+rownames(clincomp.prev) <- NULL
+
+
+clincomp.prev$Measure <- gsub(x = str_extract(pattern = "^.+\\.", string = clincomp.prev$Outcome), pattern = "\\.", replacement = "")
+clincomp.prev$MeasureClass <- "VisitsPerPatient"
+clincomp.prev[grep(clincomp.prev$Outcome, pattern = "prev"),]$MeasureClass <- "Prevalence"
+
+
+clincomp.prev %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  pivot_wider(id_cols = Measure, names_from = MeasureClass, values_from = c(Estimate, `95% CI`)) %>% 
+  select(Measure, Estimate_Prevalence, `95% CI_Prevalence`, Estimate_VisitsPerPatient, `95% CI_VisitsPerPatient`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Estimate","95% CI","Estimate","95% CI")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  #pack_rows(index = c("Process Quality" = 5, "Health Outcomes" = 2)) %>% 
+  add_header_above(c(" " = 1, "Prevalence" = 2, "Visits per Patient" = 2))
+
+
+```
+
+
+
+
+## Quality Event Study Plots
+```{r}
+
+## Standard ES plots for Gardner 2021 only 
+es.plots <- as.list(0)
+
+for (i in 8:14){
+  
+  df.temp <- df.apm.quality2[,c(1:7, i, 15:27)]
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+es <- did2s(
+      data =  df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(year.rel, ref = -1),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+es.plots[[i-7]] <- data.frame(year.rel = as.numeric(gsub("year.rel::", "", rownames(es$coeftable))), es$coeftable) %>% 
+  rbind(c(-1, 0, 0, 0, 0)) %>% 
+  filter(abs(year.rel) <= 8) %>% 
+  ggplot(aes(x = year.rel, y = Estimate)) + geom_point() + 
+  geom_errorbar(aes(ymin=Estimate-1.96*Std..Error, ymax=Estimate+1.96*Std..Error), width=.2) + 
+  theme_tufte_revised() + 
+  geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + ylab("Effect Estimate (pp)") + xlab("Year Relative to APM Rollout in State") 
+}
+
+title.vec <- c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus")
+
+ggarrange(#es.plots[[1]] + ggtitle(title.vec[1]), 
+                es.plots[[2]] + ggtitle(title.vec[2]), 
+                es.plots[[3]] + ggtitle(title.vec[3]), 
+                es.plots[[4]] + ggtitle(title.vec[4]), 
+                es.plots[[5]] + ggtitle(title.vec[5]),
+                es.plots[[6]] + ggtitle(title.vec[6]), 
+                es.plots[[7]] + ggtitle(title.vec[7]), nrow = 3, ncol = 2)
+
+
+# df.apm.quality4 <- df.apm %>% 
+#   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
+#   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
+#   #filter(att %in% c(0, 2016:2021)) %>% 
+#   select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, att) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+#   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+#                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+#                          ifelse(Class == "0 - Control", 1, NA)))) 
+
+
+
+
+
+## Repeat this whole thing to show similar event studies across methods
+
+df.apm.es.temp <- df.apm %>% 
+  #filter(Class == "0 - Control" | FullParticip == 1) %>% 
+                          filter(Year != 2011) %>% 
+                          mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+                          filter(Class.Grouped %in% c(1, 2, 3)) %>% 
+  ungroup() %>% 
+  select(imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, att, Year, ID, Pct.NHA:Pct.MCR)
+out.qual.es <- data.frame(V1 = 0, estimator = 0, term = 0, estimate = 0, std.error = 0)
+
+
+for (i in 1:7){
+ df.temp <- df.apm.es.temp[,c(i, 8:22)]
+  names(df.temp)[1] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+
+
+out.qual <- event_study(data = df.temp, 
+  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR)
+out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], out.qual))
+
+}
+
+p.es.all <- out.qual.es[-1,] %>% 
+  filter(estimator %notin% c("Callaway and Sant'Anna (2020)","Roth and Sant'Anna (2021)") & V1 != "2yo Immunizations") %>% 
+  filter(abs(term) <= 7) %>% 
+  ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
+  facet_wrap(~V1, scales = "free_y", ncol = 3) + 
+  theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) 
+
+p.es.all
+```
+
+
+
+
+
+
+## Financials
+
+
+```{r}
+
+df.apm.fin <- df.apm %>% 
+  #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
+  #filter(att %in% c(0, 2016:2021)) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.random, ngla_revenue, ngla_expense, ngla_net_gain_loss, Staff, Total, Pct.MCD, att.random, Treatment) %>% 
+  mutate(CostPerPat = ngla_expense / (Total)) %>% 
+  select(BHCMISID:Staff, Total, CostPerPat, att.random, Treatment) %>% 
+  left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+  select(BHCMISID:CostPerPat, Pct.NHA:Pct.COM, Class.Grouped, att.random, Treatment) %>% 
+  left_join(df.apm %>% summarise(ACA = max(ACA)), by = c("BHCMISID")) # %>%  filter(Class.Grouped %in% c(1, 2)) 
+
+fin.all <- c(0,0,0,0)
+
+for (i in 7:12){
+  
+  df.temp <- df.apm.fin[,c(1:6, i, 13:26)] %>% filter(Class.Grouped %in% c(1,2))
+  names(df.temp)[7] <- 'Outcome'
+  df.temp$Outcome <- as.numeric(df.temp$Outcome) 
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    fin.all <- rbind(fin.all, static$coeftable)
+  
+}
+
+fin.all <- cbind(Outcome = c("Revenue Total","Expense Total","Net Gain-Loss","Staff",'Total','CostPerPat'), round(data.frame(fin.all[-1,]), 2))
+
+rownames(fin.all) <- NULL
+
+df.apm.fin %>% 
+  mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  select(Post, Treatment, ngla_revenue:CostPerPat) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(ngla_revenue = mean(ngla_revenue, na.rm = TRUE), 
+            ngla_expense = mean(ngla_expense, na.rm = TRUE), 
+            ngla_net_gain_loss = mean(ngla_net_gain_loss, na.rm = TRUE), 
+            Staff = mean(Staff, na.rm = TRUE), 
+            Total = mean(Total, na.rm = TRUE), 
+            
+            CostPerPat = mean(CostPerPat, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(ngla_revenue:CostPerPat)) %>% 
+  mutate(value = round(value, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  cbind(fin.all) %>% 
+  select(Outcome, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         #`% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+         `% Change` = round(Estimate / (`0_1` - `0_0`) * 100, 1)) %>% 
+  select(Outcome:Estimate, `95% CI`, `% Change`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Net Financials" = 3,"Population" = 3)) 
+
+## Quality Analysis by APM Class
+
+APM.class <- c("0 - Control","1 - Medicaid Managed Care","2 - At-cost reimbursement","3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus")
+APM.class.grouped <- c(1, 2, 3)
+fin.class <- c(0,0,0,0)
+
+for (i in 7:12){
+  for (k in 2:length(APM.class.grouped)){
+  df.temp <- df.apm.fin[,c(1:6, i, 13:26)] %>% 
+    #filter(Class %in% APM.class[c(1,k)])
+    filter(Class.Grouped %in% APM.class.grouped[c(1, k)])
+  names(df.temp)[7] <- 'Outcome'
+  df.temp$Outcome <- as.numeric(df.temp$Outcome) 
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    fin.class <- rbind(fin.class, static$coeftable)
+  }
+}
+
+rownames(fin.class) <- NULL
+
+
+fin.class <- cbind(Outcome = rep(c("Revenue Total","Expense Total","Net Gain-Loss","Staff",'Total','CostPerPat'), each = 2), Class = rep(APM.class.grouped[-1], 6), round(data.frame(fin.class[-1,]), 2))
+
+
+fin.class %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  pivot_wider(id_cols = Outcome, names_from = Class, values_from = c(Estimate, `95% CI`)) %>% 
+  select(Outcome, Estimate_2, `95% CI_2`, Estimate_3, `95% CI_3`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "Cost-focused APM" = 2, "Quality-focused APM" = 2)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Net Financials" = 3,"Population" = 3)) 
+
+
+
+
+out.fins = event_study(
+data = df.apm.fin %>% left_join(df.apm %>% select(BHCMISID, Year, att), by = c("BHCMISID","Year")), 
+yname = "Total", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR + ACA
+)
+plot_event_study(out.fins %>% filter(term >= -7 & term <= 7), separate = TRUE, horizon = NULL)
+
+```
+
+
+
+
+# Robustness Testing
+
+## Multiple Hypothesis correction
+```{r}
+rbind(quality.class[-c(1,2),], fin.class) %>% 
+  arrange(`Pr...t..`) %>% 
+  cbind(c(1:24) / 24 * 0.1) %>% 
+  mutate(Row = row_number()) %>% 
+  ggplot(aes(x = Row, y = `Pr...t..`)) + geom_point() + 
+  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/26 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
+```
+
+
+## Change in EHR measurements
+
+
+```{r}
+
+## APM uptake is not predictive of transitioning to fully-EHR measuring
+did2s(
+      data = 
+df.apm.quality2 %>% 
+  left_join(uds.quality.sampling.v.ehr, by = c("BHCMISID" = "BHCMIS.ID", "Year" = "YEAR")) %>% 
+  mutate(ehr = ifelse(ehr >= 1, 1, 0)), 
+      yname = "ehr", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+
+
+
+## Look only at years with EHR-only reporting
+
+quality.all <- c(0,0,0,0)
+
+for (i in 8:14){ ##12 or 14
+  
+  df.temp <- (df.apm.quality2 %>% 
+  left_join(uds.quality.sampling.v.ehr, by = c("BHCMISID" = "BHCMIS.ID", "Year" = "YEAR")) %>% 
+  mutate(ehr = ifelse(ehr >= 1, 1, 0)))[,c(1:7, i, 15:27,  44)] %>% filter(ehr == 1) ##(31+i),
+  names(df.temp)[8] <- 'Outcome'
+  # df.temp <- df.temp[df.temp[,23] == 1,]
+  # df.temp <- df.temp[complete.cases(df.temp),]
+  df.temp$Outcome <- df.temp$Outcome * 100
+  
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.all <- rbind(quality.all, static$coeftable)
+  
+}
+
+quality.all <- cbind(Outcome = c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), round(data.frame(quality.all[-1,]), 2))
+
+rownames(quality.all) <- NULL
+
+
+quality.all %>% 
+  filter(Outcome != "2yo Immunizations") %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  select(Outcome, Estimate, `95% CI`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Estimate","95% CI")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) 
+
+
+```
+
+
+
+## Early vs Later APM rollouts
+```{r}
+
+APM.class <- c("0 - Control","1 - Medicaid Managed Care","2 - At-cost reimbursement","3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus")
+APM.class.grouped <- c(1, 2, 3)
+quality.early.late <- c(0,0,0,0,0)
+
+for (i in 8:14){
+  for (k in 0:1){
+  df.temp <- df.apm.quality2[,c(1:7, i, 15:28)] %>% 
+    left_join(df.apm %>% select(BHCMISID, att) %>% unique(), by = c("BHCMISID")) %>% 
+    #filter(Class %in% APM.class[c(1,k)])
+    filter(Year >= ((1 - k) * 2009 + k * 2016) & Year <= ((1 - k) * 2015 + k * 2021)) %>% 
+    filter(att == 0 |( (att >= ((1 - k) * 2013 + k * 2016) & att <= ((1 - k) * 2015 + k * 2021))))
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome * 100
+    static <- did2s(
+      data = df.temp, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    quality.early.late <- rbind(quality.early.late, cbind(k, static$coeftable))
+  }
+}
+
+rownames(quality.early.late) <- NULL
+
+
+quality.early.late <- cbind(Outcome = rep(c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), each = 2), round(data.frame(quality.early.late[-1,]), 2))
+
+quality.early.late[-c(1:2),] %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+  pivot_wider(id_cols = Outcome, names_from = k, values_from = c(Estimate, `95% CI`)) %>% 
+  select(Outcome, Estimate_0, `95% CI_0`, Estimate_1, `95% CI_1`) %>% 
+    kable("html", booktabs = T, col.names = c("Outcome", rep(c("Estimate", "95% CI"), 2))) %>%
+  add_header_above(c(" " = 1, "2009-2015" = 2, "2016-2021" = 2)) %>% 
+  kable_styling(latex_options = c("striped")) %>% 
+  pack_rows(index = c("Process Quality" = 4, "Health Outcomes" = 2)) 
+
+```
+
+
+
+
+
+
+
+## Report out the financials by Class Grouped
+
+
+```{r}
+
+df.apm.fin %>% 
+  ungroup() %>%
+    filter(Class.Grouped %in% c(1, 2)) %>% 
+  mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  select(Post, Treatment, ngla_revenue:CostPerPat) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(Revenue = mean(ngla_revenue, na.rm = TRUE), 
+            Expense = mean(ngla_expense, na.rm = TRUE), 
+            Profit = mean(ngla_net_gain_loss, na.rm = TRUE), 
+            Staff = mean(Staff, na.rm = TRUE), 
+            Total = mean(Total, na.rm = TRUE), 
+            CostPerPat = mean(CostPerPat, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(Revenue:CostPerPat)) %>% 
+  mutate(value = round(value, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  cbind(fin.class %>% filter(Class == 2))  %>% 
+  select(Outcome, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         `% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+  select(Outcome:Estimate, `95% CI`, `% Change`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Net Financials" = 3,"Population" = 3)) %>% 
+  add_header_above(c(" " = 1, "Control" = 2, "Treated" = 2, " " = 1, "Staggered DID" = 3))
+
+
+df.apm.fin %>% 
+  ungroup() %>% 
+  filter(Class.Grouped %in% c(1, 3)) %>% 
+    mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  select(Post, Treatment, ngla_revenue:CostPerPat) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(Revenue = mean(ngla_revenue, na.rm = TRUE), 
+            Expense = mean(ngla_expense, na.rm = TRUE), 
+            Profit = mean(ngla_net_gain_loss, na.rm = TRUE), 
+            Staff = mean(Staff, na.rm = TRUE), 
+            Total = mean(Total, na.rm = TRUE), 
+            CostPerPat = mean(CostPerPat, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(Revenue:CostPerPat)) %>% 
+  mutate(value = round(value, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  cbind(fin.class %>% filter(Class == 3) ) %>% 
+  select(Outcome, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         `% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+  select(Outcome:Estimate, `95% CI`, `% Change`) %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  pack_rows(index = c("Net Financials" = 3,"Population" = 3)) %>% 
+  add_header_above(c(" " = 1, "Control" = 2, "Treated" = 2, " " = 1, "Staggered DID" = 3))
+```
+
+
+
+## Quality by Financial Quantile
+```{r}
+
+
+df.apm.rpp <- df.apm.fin  %>% 
+  select(BHCMISID:ngla_net_gain_loss, Total, Class.Grouped:Treatment) %>% 
+  mutate(RevenuePerPat = ngla_revenue / Total) %>% # / Total
+  filter(Treatment == 1) %>% 
+  group_by(BHCMISID, Tx) %>% 
+  summarise(RPP = mean(RevenuePerPat, na.rm = TRUE)) %>% 
+  pivot_wider(id_cols = BHCMISID, names_from = Tx, values_from = RPP) %>% 
+  mutate(ChangeInRevenue = (`1` - `0`) ) # / `0`
+
+summary(df.apm.rpp$ChangeInRevenue)
+
+quantile(df.apm.rpp$ChangeInRevenue, 0.025, na.rm = TRUE)
+
+df.apm.rpp <- df.apm.quality2 %>% 
+  left_join(df.apm.rpp, by = c("BHCMISID")) %>% 
+  filter(Class.Grouped == 1 | (ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0.025, na.rm = TRUE) & ChangeInRevenue <= quantile(df.apm.rpp$ChangeInRevenue, 0.975, na.rm = TRUE))) %>% 
+  mutate(rpp.quant = ifelse(ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0.8, na.rm = TRUE), 8, 
+                     ifelse(ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0.6, na.rm = TRUE), 6, 
+                     ifelse(ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0.4, na.rm = TRUE), 4, 
+                     ifelse(ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0.2, na.rm = TRUE), 2, 
+                     ifelse(ChangeInRevenue >= quantile(df.apm.rpp$ChangeInRevenue, 0, na.rm = TRUE), 0, NA))))))
+
+
+
+qual.qants <- c(0,0,0,0)
+for (k in c(0, 2, 4, 6, 8)){
+static <- did2s(
+      data = df.apm.rpp %>% filter((rpp.quant == k & Class.Grouped == 2)| Class.Grouped == 1), 
+      yname = "dm.rate", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+qual.qants <- rbind(qual.qants, static$coeftable)
+}
+
+cbind(sort(unique(df.apm.rpp$rpp.quant)), qual.qants[-1,])
+```
+
+
+
+
+## Closures
+```{r}
+
+model_feols_clustered <- feols(closed ~ Tx | Year + ID, cluster = ~ ID, data = df.apm , split = ~Class.random)
+summary(model_feols_clustered)
+
+model_feols_clustered <- feols(closed ~ Treatment*year.rel | Year + ID, cluster = ~ ID, data = df.apm %>% filter(Class.random %in% c( "2 - At-cost reimbursement")))
+summary(model_feols_clustered)
+
+ev.plot <- data.frame(tail(model_feols_clustered$coeftable, 20))
+cbind(order = as.numeric(gsub("Treatment:year.rel", "", rownames(ev.plot))), ev.plot) %>% 
+  rbind(c(order = -1, Estimate = 0, Std..Error = 0, t.value = NA, Pr...t.. = NA)) %>% 
+  arrange(order) %>% 
+  filter(order %in% (-6:6)) %>% 
+  ggplot(aes(x = order, y = Estimate)) + geom_point() + geom_errorbar(aes(ymin=Estimate-1.96*Std..Error, ymax=Estimate+1.96*Std..Error), width=.2)  + 
+  theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) 
+
+
+df.apm %>% mutate(Treat = ifelse(att > 0, 1, 0), 
+                  Post = ifelse(Year >= att.random, 1, 0)) %>%
+  group_by(Class, Treat, Post) %>%
+  summarise(closures = mean(closed, na.rm = TRUE)) %>%
+  pivot_wider(id_cols = c(Post, Treat), names_from = Class, values_from = closures)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
