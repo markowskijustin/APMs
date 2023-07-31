@@ -24,6 +24,7 @@ library(kableExtra)
 library(usmap)
 library(did2s)
 library(formattable)
+library(readr)
 
 `%notin%` <- Negate(`%in%`)
 select <- dplyr::select
@@ -88,6 +89,14 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 ```
 
 
+# Read in data from Git
+```{r}
+urlfile="https://raw.githubusercontent.com/markowskijustin/APMs/main/data_processed/analyticalfile.csv?token=GHSAT0AAAAAACFYJHV6Y3XRLFSS7IL7YIRWZGIHWMA"
+
+df.apm <- read_csv(url(urlfile)) 
+
+
+```
 
 
 # Cleaned Up Analysis

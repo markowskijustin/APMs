@@ -736,8 +736,15 @@ fins.revenue.expenses <- uds.cw %>% filter(Year == 2011) %>% unique() %>% select
 ## APM History
 
 ```{r}
-apm.history <- read_excel("APM_History.xlsx") %>% 
+library (readr)
+
+urlfile="https://raw.githubusercontent.com/markowskijustin/APMs/main/data_raw/APM_History.csv?token=GHSAT0AAAAAACFYJHV6HFDP4ZFXNHZVIA56ZGIHELQ"
+
+apm.history <- read_csv(url(urlfile)) %>% 
   mutate(Class = ifelse(is.na(Year), "0 - Control", Classification))
+
+#apm.history <- read_excel("APM_History.xlsx") %>% 
+#  mutate(Class = ifelse(is.na(Year), "0 - Control", Classification))
 
 ```
 
@@ -820,6 +827,8 @@ df.apm <- df.apm %>%
 ## Remove some weird shit in CT
 df.apm <- df.apm %>% 
   filter(BHCMISID != "01E00010")
+
+#write_csv(df.apm, file = "/Users/jhm65/Dropbox/Projects/APMs/data_processed/analyticalfile.csv")
 ```
 
 

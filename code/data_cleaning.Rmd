@@ -24,6 +24,7 @@ library(kableExtra)
 library(usmap)
 library(did2s)
 library(formattable)
+library (readr)
 
 `%notin%` <- Negate(`%in%`)
 select <- dplyr::select
@@ -740,7 +741,7 @@ fins.revenue.expenses <- uds.cw %>% filter(Year == 2011) %>% unique() %>% select
 ## APM History
 
 ```{r}
-library (readr)
+
 
 urlfile="https://raw.githubusercontent.com/markowskijustin/APMs/main/data_raw/APM_History.csv?token=GHSAT0AAAAAACFYJHV6HFDP4ZFXNHZVIA56ZGIHELQ"
 
