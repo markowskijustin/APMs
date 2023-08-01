@@ -93,7 +93,8 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 ```{r}
 urlfile="https://raw.githubusercontent.com/markowskijustin/APMs/main/data_processed/analyticalfile.csv?token=GHSAT0AAAAAACFYJHV6Y3XRLFSS7IL7YIRWZGIHWMA"
 
-df.apm <- read_csv(url(urlfile)) 
+df.apm <- read_csv(url(urlfile)) %>% 
+  group_by(BHCMISID)
 
 
 ```
