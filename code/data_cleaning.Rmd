@@ -201,7 +201,7 @@ uds.sites <- rbind(uds.sites, temp.sites)
 
 
 
-uds.sites.old <- read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Sites.csv", colClasses = "character") %>% 
+uds.sites.old <- read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Sites.csv", colClasses = "character") %>% 
   mutate(Year = as.numeric(Year))
 
 colnames(uds.sites.old) <- c("BHCMIS ID", "Health Center Name", "Site Name", "Site Street Address", "Site Street Address 2", "Site State", "Site ZIP Code", "Year", "GranteeID", "Site Street Address 3","Site City","ModernGrateeID")    
@@ -218,7 +218,7 @@ uds.sites.full <- uds.sites.full %>%
 
 uds.sites.full[grep(pattern = "-", uds.sites.full$Zip),]$Zip <- NA
 
-#write.csv(x = uds.sites.full, file = "//Users/jhm65/Research/Historical UDS/Sites96to21.csv")
+#write.csv(x = uds.sites.full, file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Sites96to21.csv")
 
 
 
@@ -228,14 +228,14 @@ uds.sites.full[grep(pattern = "-", uds.sites.full$Zip),]$Zip <- NA
 
 ## Merge with Older UDSs 1996-2011
 ```{r}
-uds.cw <- read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_CW.csv", colClasses = "character") %>% 
+uds.cw <- read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_CW.csv", colClasses = "character") %>% 
   mutate(link.ID = ifelse(is.na(ModernGranteeID) & !is.na(LongGrantID) & Year != 2010, LongGrantID, 
                    ifelse(is.na(ModernGranteeID) & !is.na(GranteeID), GranteeID, BHCMIS.ID)), 
          Year = as.integer(Year))
 
 
 uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(BHCMIS.ID == '010060' & Year %in% c(2007:2011)) %>% 
@@ -289,35 +289,35 @@ uds.3B <- rbind(cbind(Year = 2012, uds.3B.2012),
 
 uds.3B <- rbind(
   uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(Year %in% c(2007)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T3B_L5A_CA, T3B_L6_CA, T3B_L1_CA, T3B_L8_CA, T3B_L4_CA, T3B_L12_CA) %>% 
     setNames(namevec), 
   uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(Year %in% c(2008)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T3B_L5A_CA, T3B_L6_CA, T3B_L1_CA, T3B_L8_CA, T3B_L4_CA, T3B_L12_CA) %>% 
     setNames(namevec),
     uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(Year %in% c(2009)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T3B_L1_CB, T3B_L3_CB, T3B_L8_CA, T3B_L5_CB, T3B_L8_CD, T3B_L12_CA) %>% 
     setNames(namevec), 
   uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(Year %in% c(2010)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T3B_L1_CB, T3B_L3_CB, T3B_L8_CA, T3B_L5_CB, T3B_L8_CD, T3B_L12_CA) %>% 
     setNames(namevec), 
   uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table3B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   arrange(BHCMIS.ID, Year) %>% 
   select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
   filter(Year %in% c(2011)) %>% 
@@ -362,14 +362,14 @@ uds.4 <- rbind(cbind(Year = 2012, uds.4.2012),
 
 uds.4 <- rbind(
 uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   filter(Year %in% c(2007, 2011)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T4_L1_CA, T4_L2_CA, T4_L3_CA, T4_L4_CA, T4_L5_CA, 
          T4_L16_CA, T4_L23_CA, 
          T4_L7_CA, T4_L7_CB, T4_L8_CA, T4_L8_CB, T4_L9_CA, T4_L9_CB, T4_L10_CA, T4_L10_CB, T4_L11_CA, T4_L11_CB) %>% 
   setNames(namevec), 
 uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table4.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   filter(Year %in% c(2008:2010)) %>% 
   select(Year, BHCMIS.ID, ModernGranteeID, T4_L1_CA, T4_L2_CA, T4_L3_CA, T4_L4_CA, T4_L5_CA, 
          T4_L16_CA, T4_L23_CA, 
@@ -431,7 +431,7 @@ uds.covariates %>%
 ## Table 6A
 ```{r}
 uds.6a.2011andBefore <- uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6A.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table6A.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   select(BHCMIS.ID, Year, T6A_L10_CA:T6A_L26D_CB) %>% 
   filter(Year >= 2010) %>% 
   rename(BHCMISID = BHCMIS.ID) %>% 
@@ -529,7 +529,7 @@ uds.quality.6b <- rbind(
   select(Year, BHCMISID, GrantNumber, imm.rate, imm.denom, pap.rate, pap.denom, crc.rate, crc.denom, asthma.rate, cad.rate, ivd.rate, childbmi.rate, childbmi.denom, adultbmi.rate, adultbmi.denom) %>% 
   
   bind_rows(uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   filter(Year != 2008) %>% 
     arrange(BHCMIS.ID, Year) %>% 
   #select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
@@ -589,7 +589,7 @@ vec.files <- paste("//Users/jhm65/Dropbox/Git/UDS/UDS-",vec.years, "-Full-Datase
 
 
 uds.quality.sampling.v.ehr <- uds.cw %>% 
-  inner_join(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
+  inner_join(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table6B.csv"), by = c("link.ID" = "BHCMIS.ID", "Year")) %>% 
   filter(Year != 2008) %>% 
     arrange(BHCMIS.ID, Year) %>% 
   #select(BHCMIS.ID:link.ID, T3B_L1_CA:T3B_L7_CC) %>% 
@@ -668,7 +668,7 @@ uds.quality.7 <- rbind(
          dm.total = as.numeric(dm.total)) %>% 
   select(Year:Ethnicity, htn.total, htn.rate, dm.total, dm.rate) %>% 
   
-  bind_rows(read.csv(file = "//Users/jhm65/Research/Historical UDS/Merged_Table7clin.csv") %>% 
+  bind_rows(read.csv(file = "//Users/jhm65/Dropbox/Git/APMs/data_processed/Merged_Table7clin.csv") %>% 
   select(Year, ModernGranteeID:dm.controlled) %>% 
   rename(GrantNumber = ModernGranteeID) %>% 
     mutate(htn.rate = as.numeric(htn.control) / as.numeric(htn.total), 
