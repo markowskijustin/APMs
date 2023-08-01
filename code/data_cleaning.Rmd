@@ -832,6 +832,7 @@ df.apm <- df.apm %>%
 ## Remove some weird shit in CT
 df.apm <- df.apm %>% 
   filter(BHCMISID != "01E00010")
+
 ```
 
 
