@@ -820,8 +820,8 @@ df.apm$year.rel <- relevel(as.factor(df.apm$year.rel), ref = "-1")
 
 ## Filter for balanced panel, remove closures and late openings
 df.apm <- df.apm %>%
-  left_join(df.apm %>% summarise(Counts = n()), by = c("BHCMISID")) %>%
-  filter(Counts == length(included.years))
+  left_join(df.apm %>% summarise(Counts = n(), MinYear = min(Year)), by = c("BHCMISID")) %>%
+  filter(MinYear %in% c(2009)) #  filter(Counts < 13 & MinYear == 2009)    filter(Counts == length(included.years))
 
 ## Remove some weird shit in CT
 df.apm <- df.apm %>% 

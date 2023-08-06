@@ -90,13 +90,11 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 ```
 
 
-# Read in data from Git
+# Read in data 
 ```{r}
-urlfile="https://raw.githubusercontent.com/markowskijustin/APMs/main/data_processed/analyticalfile.csv?token=GHSAT0AAAAAACFYJHV6Y3XRLFSS7IL7YIRWZGIHWMA"
 
-df.apm <- read_csv(url(urlfile)) %>% 
+df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% 
   group_by(BHCMISID)
-
 
 ```
 
@@ -171,6 +169,45 @@ df.apm %>%
   add_p
   
 dim(table(df.apm$att, df.apm$STATE))
+
+
+df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel %in% c(-1, 0)) %>% 
+  select(Treatment, year.rel, Total:Pct.COM) %>% 
+  mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated"), 
+         Treat.YearRel = paste(Treatment, ",", year.rel)) %>% 
+  select(Treat.YearRel, Total:Pct.COM) %>% 
+  tbl_summary(by = Treat.YearRel, 
+              missing = "no", # don't list missing data separately
+      statistic = all_continuous() ~ "{mean} ({sd})",
+      digits = all_continuous() ~ c(2,2)
+    ) %>% 
+  add_p
+
+
+df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel == 0) %>% 
+  select(Treatment) %>% 
+  
+  cbind(
+as.matrix(df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel %in% c(0)) %>% 
+  select(Total:Pct.COM)) - as.matrix(df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel %in% c(-1)) %>% 
+  select(Total:Pct.COM))) %>% 
+  mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated")) %>% 
+  tbl_summary(by = Treatment, 
+              missing = "no", # don't list missing data separately
+      statistic = all_continuous() ~ "{mean} ({sd})",
+      digits = all_continuous() ~ c(2,2)
+    ) %>% 
+  add_p
+
+
 
 ```
 
@@ -1418,6 +1455,39 @@ cbind(sort(unique(df.apm.rpp$rpp.quant)), qual.qants[-1,])
 ```
 
 
+## Closures - Updated
+```{r}
+df.closures <- df.apm %>% 
+  #filter(Class == "0 - Control" | FullParticip == 0) %>% 
+  #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
+  #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
+  #filter(att %in% c(0, 2016:2021)) %>% 
+  select(ID, Year, Tx, Class, Class.random, year.rel, closed, att) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) 
+
+
+
+did2s(
+      data = df.closures %>% filter(Class.Grouped %in% c(1, 2, 3)), 
+      yname = "closed", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+
+closures.es <- event_study(data = df.apm %>%   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+                           filter(Class.Grouped %in% c(1, 2, 3)), 
+  yname = "closed", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR)
+
+plot_event_study(closures.es %>% filter(term >= -5 & term <= 5), separate = TRUE, horizon = NULL)
+
+```
 
 
 ## Closures
@@ -1426,7 +1496,7 @@ cbind(sort(unique(df.apm.rpp$rpp.quant)), qual.qants[-1,])
 model_feols_clustered <- feols(closed ~ Tx | Year + ID, cluster = ~ ID, data = df.apm , split = ~Class.random)
 summary(model_feols_clustered)
 
-model_feols_clustered <- feols(closed ~ Treatment*year.rel | Year + ID, cluster = ~ ID, data = df.apm %>% filter(Class.random %in% c( "2 - At-cost reimbursement")))
+model_feols_clustered <- feols(closed ~ Treatment*year.rel | Year + ID, cluster = ~ ID, data = df.apm %>% filter(Class.random %in% c("2 - At-cost reimbursement")))
 summary(model_feols_clustered)
 
 ev.plot <- data.frame(tail(model_feols_clustered$coeftable, 20))
