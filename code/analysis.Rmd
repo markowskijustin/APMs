@@ -1439,8 +1439,11 @@ for (i in 3:ncol(df.test.fins)){
   df.test.fins[,i] <- as.numeric(unlist(df.test.fins[,i]))
 }
 
+
+mean.nas<- function(x){ mean(x, na.rm = TRUE)}
+
  df.test.fins <- df.test.fins %>% 
-   summarise_all(mean) %>% 
+   summarise_all(mean.nas) %>% 
    pivot_longer(cols = c(`Medicaid Non-Managed Care - Full Charges This Period`:`Total (lines 3 + 6 + 9 + 12 + 13) - Bad Debt Write Off`)) 
  
  
