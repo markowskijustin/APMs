@@ -1216,6 +1216,83 @@ plot_event_study(out.fins %>% filter(term >= -7 & term <= 7), separate = TRUE, h
 ```
 
 
+## Cost of quality improvement - did value change? 
+
+```{r}
+
+## Cost of Quality Improvement
+group <- 3
+
+denom.size <- df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel == -1 & Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus")) %>% 
+  summarise(Total = mean(Total)) %>% 
+  unlist()
+  
+
+df.apm.quality3 %>% 
+  ungroup() %>% 
+  filter(year.rel == -1 & Class.Grouped == group) %>% 
+  group_by(Class.Grouped) %>% 
+  summarise(imm.prev = mean(imm.prev, na.rm = TRUE), 
+            pap.prev = mean(pap.prev, na.rm = TRUE), 
+            crc.prev = mean(crc.prev, na.rm = TRUE), 
+            childbmi.prev = mean(childbmi.prev, na.rm = TRUE), 
+            adultbmi.prev = mean(adultbmi.prev, na.rm = TRUE), 
+            
+            htn.prev = mean(htn.prev, na.rm = TRUE), 
+            dm.prev = mean(dm.prev, na.rm = TRUE)) %>% 
+  pivot_longer(cols = c(imm.prev:dm.prev)) %>%  
+  cbind(quality.class %>% filter(Class == group)) %>% 
+  mutate(NumberBenefited = denom.size * value * Estimate / 100) %>% 
+  ungroup() %>% 
+  summarise(NumberBenefited = sum(NumberBenefited)) %>% 
+  cbind(fin.class %>% filter(Class == group & Outcome == "CostPerPat")) %>% 
+  mutate(CostPerPatImproved = Estimate * denom.size / NumberBenefited)
+
+
+## Change in Value?
+df.temp <- df.apm.quality2 %>%
+  filter(Class.Grouped %in% c(1,3)) %>% 
+   mutate(Composite = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate + htn.rate + dm.rate) / 6)
+
+adjusted <- did2s(
+      data = df.temp, 
+      yname = "Composite", 
+      treatment = "Tx",
+        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    ) 
+
+
+
+
+df.temp %>% 
+  ungroup() %>% 
+  filter(year.rel == -1) %>% 
+  summarise(mean(Composite, na.rm = TRUE)) %>% 
+  unlist() * 100  / df.apm.fin %>% 
+    ungroup() %>% 
+    filter(Class.Grouped %in% c(3) & as.numeric(Year - att.random) == -1) %>% 
+  summarise(CostPerPat = mean(CostPerPat, na.rm = TRUE)) %>% 
+  unlist()
+
+
+(df.temp %>% 
+  ungroup() %>% 
+  filter(year.rel == -1) %>% 
+  summarise(mean(Composite, na.rm = TRUE)) %>% 
+  unlist() * 100  + adjusted$coefficients * 100)/ (df.apm.fin %>% 
+    ungroup() %>% 
+    filter(Class.Grouped %in% c(3) & as.numeric(Year - att.random) == -1) %>% 
+  summarise(CostPerPat = mean(CostPerPat, na.rm = TRUE)) %>% 
+  unlist() + 124)
+
+
+
+```
 
 
 # Robustness Testing
