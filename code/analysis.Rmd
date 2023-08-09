@@ -1425,6 +1425,39 @@ quality.early.late[-c(1:2),] %>%
 
 
 
+```{r}
+
+
+df.test.fins <- read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table9D", skip = 1)
+
+colnames(df.test.fins) <- colnames(read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "Table9D", skip = 0))
+
+df.test.fins <- df.test.fins %>% 
+  filter(`Medicaid Non-Managed Care - Full Charges This Period` != '-')
+
+for (i in 3:ncol(df.test.fins)){
+  df.test.fins[,i] <- as.numeric(unlist(df.test.fins[,i]))
+}
+
+ df.test.fins <- df.test.fins %>% 
+   summarise_all(mean) %>% 
+   pivot_longer(cols = c(`Medicaid Non-Managed Care - Full Charges This Period`:`Total (lines 3 + 6 + 9 + 12 + 13) - Bad Debt Write Off`)) 
+ 
+ 
+ 
+ data.frame(matrix(unlist(strsplit(df.test.fins$name, " - ")), ncol = 2, byrow = T), value = df.test.fins$value) %>% 
+   pivot_wider(id_cols = X1, names_from = X2, values_from = value) %>% 
+   filter(stringr::str_detect(X1, 'Total')) %>% 
+   select(X1:`Amount Collected This Period`) %>% 
+   mutate(Yield = `Amount Collected This Period` / `Full Charges This Period`) %>% 
+   arrange(desc(Yield))
+ 
+
+ 
+ 
+```
+
+
 ## Report out the financials by Class Grouped
 
 
