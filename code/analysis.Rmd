@@ -964,7 +964,7 @@ for (i in vecs){
   names(df.temp)[8] <- 'Outcome'
   df.temp$Outcome <- df.temp$Outcome
     static <- did2s(
-      data = df.temp, 
+      data = df.temp %>% filter(Class.Grouped %in% c(1,2, 3)), 
       yname = "Outcome", 
       treatment = "Tx",
         first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
