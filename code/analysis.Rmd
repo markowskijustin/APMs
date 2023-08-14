@@ -273,6 +273,7 @@ demo.all
 ## Better Quality Analysis
 
 ```{r}
+
 df.apm.quality2 <- df.apm %>% 
   #filter(Class == "0 - Control" | FullParticip == 0) %>% 
   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
