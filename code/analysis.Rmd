@@ -30,6 +30,10 @@ library(readr)
 `%notin%` <- Negate(`%in%`)
 select <- dplyr::select
 
+# library(remotes)
+# 
+# remotes::install_github('kylebutts/did2s')
+
 ```
 
 ## Formating plots
@@ -298,7 +302,7 @@ for (i in 8:14){
         first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
-      verbose = FALSE
+      verbose = FALSE, bootstrap = T
     )
     quality.all <- rbind(quality.all, static$coeftable)
   
@@ -359,7 +363,7 @@ for (i in 8:14){
         first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
-      verbose = FALSE
+      verbose = FALSE, bootstrap = T
     )
     quality.class <- rbind(quality.class, static$coeftable)
   }
