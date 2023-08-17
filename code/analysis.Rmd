@@ -361,7 +361,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -435,8 +435,8 @@ title.vec <- c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cance
 
 df.apm.mcd <- df.apm.quality2 %>% 
   ungroup() %>% 
-  left_join(df.apm %>% select(BHCMISID, FullParticip) %>% unique(), by = c("BHCMISID")) %>% 
-  mutate(MCD.filter = ifelse(Pct.MCD >= median(df.apm.quality2$Pct.MCD, na.rm = TRUE), 1, 0)) %>% 
+  left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, FullParticip, Pct.MCD) %>% rename(MCD.value = Pct.MCD) %>% unique(), by = c("BHCMISID")) %>%
+  mutate(MCD.filter = ifelse(MCD.value >= median(MCD.value, na.rm = TRUE), 1, 0)) %>% 
   select(imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Year, ID, Tx, Pct.NHA:Pct.MCR, Class.Grouped, FullParticip, MCD.filter)
 
 
@@ -456,7 +456,7 @@ out.qual <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -497,7 +497,7 @@ out.qual <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -612,7 +612,7 @@ out.qual <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year ,  
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -681,7 +681,7 @@ out.qual <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -744,7 +744,7 @@ out.qual <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless  + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -804,8 +804,8 @@ df.apm.mcd %>%
 df.apm.quality3 <- df.apm %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
   #filter(att %in% c(0, 2016:2021)) %>% 
-  select(BHCMISID, ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, 
-                      imm.denom, pap.denom, crc.denom, childbmi.denom, adultbmi.denom, htn.total, dm.total, Total, att.random, Treatment) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+#select(BHCMISID, ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, 
+#                      imm.denom, pap.denom, crc.denom, childbmi.denom, adultbmi.denom, htn.total, dm.total, Total, att.random, Treatment) %>% left_join(df.apm %>% filter(year.rel == -1) %>% #select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) %>% 
@@ -830,7 +830,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -889,7 +889,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -924,7 +924,7 @@ quality.prev.class %>%
 ```{r}
 
 df.apm.clincomp <- df.apm %>% 
-  select(BHCMISID:Total, T6A_L1AND2_CA:T6A_L34_CB) %>% 
+  #select(BHCMISID:Total, T6A_L1AND2_CA:T6A_L34_CB) %>% 
   mutate(HIV.prev = T6A_L1AND2_CB / Total * 100, 
          HIV.care = T6A_L1AND2_CA / T6A_L1AND2_CB,
          
@@ -953,7 +953,7 @@ df.apm.clincomp <- df.apm %>%
          Diabetes.care = T6A_L9_CA / T6A_L9_CB, 
          
          Hypertension.prev = T6A_L11_CB / Total * 100, 
-         Hypertension.care = T6A_L11_CA / T6A_L11_CB) %>% left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+         Hypertension.care = T6A_L11_CA / T6A_L11_CB) %>% #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) %>% 
@@ -973,7 +973,7 @@ for (i in vecs){
       data = df.temp %>% filter(Class.Grouped %in% c(1,2, 3)), 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1021,7 +1021,7 @@ es <- did2s(
       data =  df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(year.rel, ref = -1),
         cluster_var = "ID",
       verbose = FALSE
@@ -1110,10 +1110,10 @@ p.es.all
 df.apm.fin <- df.apm %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
   #filter(att %in% c(0, 2016:2021)) %>% 
-  select(BHCMISID, ID, Year, Tx, Class, Class.random, ngla_revenue, ngla_expense, ngla_net_gain_loss, Staff, Total, Pct.MCD, att.random, Treatment) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.random, ngla_revenue, ngla_expense, ngla_net_gain_loss, Staff, Total, att.random, Treatment, Pct.NHA:Pct.COM) %>% 
   mutate(CostPerPat = ngla_expense / (Total)) %>% 
-  select(BHCMISID:Staff, Total, CostPerPat, att.random, Treatment) %>% 
-  left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  select(BHCMISID:Staff, Total, CostPerPat, att.random, Treatment, Pct.NHA:Pct.COM) %>% 
+  #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) %>% 
@@ -1124,14 +1124,14 @@ fin.all <- c(0,0,0,0)
 
 for (i in 7:12){
   
-  df.temp <- df.apm.fin[,c(1:6, i, 13:26)] %>% filter(Class.Grouped %in% c(1,2))
+  df.temp <- df.apm.fin[,c(1:6, i, 13:29)] #%>% filter(Class.Grouped %in% c(1,2))
   names(df.temp)[7] <- 'Outcome'
   df.temp$Outcome <- as.numeric(df.temp$Outcome) 
     static <- did2s(
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1177,7 +1177,7 @@ fin.class <- c(0,0,0,0)
 
 for (i in 7:12){
   for (k in 2:length(APM.class.grouped)){
-  df.temp <- df.apm.fin[,c(1:6, i, 13:26)] %>% 
+  df.temp <- df.apm.fin[,c(1:6, i, 13:29)] %>% 
     #filter(Class %in% APM.class[c(1,k)])
     filter(Class.Grouped %in% APM.class.grouped[c(1, k)])
   names(df.temp)[7] <- 'Outcome'
@@ -1186,7 +1186,7 @@ for (i in 7:12){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1327,7 +1327,7 @@ df.apm.quality2 %>%
   mutate(ehr = ifelse(ehr >= 1, 1, 0)), 
       yname = "ehr", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1353,7 +1353,7 @@ for (i in 8:14){ ##12 or 14
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year, 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1400,7 +1400,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year, 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
@@ -1562,7 +1562,7 @@ static <- did2s(
       data = df.apm.rpp %>% filter((rpp.quant == k & Class.Grouped == 2)| Class.Grouped == 1), 
       yname = "dm.rate", 
       treatment = "Tx",
-        first_stage = ~ 0 | ID + Year + Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR, 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + Pct.None + Pct.MCD + Pct.MCR | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE
