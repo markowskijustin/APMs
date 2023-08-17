@@ -728,13 +728,17 @@ names(fins.revenue.expenses) <- gsub("^X\\.", "", names(fins.revenue.expenses))
 names(fins.revenue.expenses) <- gsub("\\.\\.", "", names(fins.revenue.expenses))
 
 staffing <- read.csv("/Users/jhm65/Dropbox/Git/Data/FQHC_Staffing.csv")
-
+assliabs <- read.csv("/Users/jhm65/Dropbox/Git/Data/FQHC_Assets_and_Liabilities.csv")
 
 fins.revenue.expenses <- uds.cw %>% filter(Year == 2011) %>% unique() %>% select(ModernGranteeID, BHCMIS.ID) %>% 
   left_join(cw, by = c("ModernGranteeID" = "Grant Number")) %>% 
   left_join(fins.revenue.expenses, by = c("EIN" = "EIN")) %>% 
   select(ModernGranteeID:EIN, form_year:fringe_rate) %>% 
-  left_join(staffing %>% select(EIN:Staff), by = c("EIN","form_year" = "Year"))
+  left_join(staffing %>% select(EIN:Staff), by = c("EIN","form_year" = "Year")) 
+
+
+fins.revenue.expenses <- fins.revenue.expenses %>% 
+  left_join(assliabs %>% select(EIN:Liabilities), by = c("EIN","form_year" = "Year")) 
 ```
 
 
@@ -807,7 +811,7 @@ df.apm <- df.apm %>%
   filter((att == 0 | att %in% included.treat) & Year %in% included.years) %>% 
   mutate(year.rel = as.factor(ifelse(att.random > 0, Year - att.random, NA)), 
          Treatment = ifelse(att > 0, 1, 0)) %>% 
-  select(BHCMISID:STATE, Name:ID, ACA:Treatment, Total:dm.total, fs_contributions:Staff) 
+  select(BHCMISID:STATE, Name:ID, ACA:Treatment, Total:dm.total, fs_contributions:Liabilities) 
 
 df.apm <- df.apm %>% 
   left_join(df.apm %>% 
@@ -825,7 +829,25 @@ df.apm <- df.apm %>%
 
 ## Remove some weird shit in CT
 df.apm <- df.apm %>% 
-  filter(BHCMISID != "01E00010") #%>%  filter(STATE != 'CT')
+  filter(BHCMISID != "01E00010") %>% 
+  mutate(pap.rate = pap.rate * 100, 
+         crc.rate = crc.rate * 100, 
+         childbmi.rate = childbmi.rate * 100, 
+         adultbmi.rate = adultbmi.rate * 100, 
+         
+         htn.rate = htn.rate * 100, 
+         dm.rate = dm.rate * 100, 
+         
+         CostPerPat = ngla_expense / Total, 
+         months_of_cash = as.numeric(months_of_cash),
+         
+         Liquidity = (Assets - Liabilities) / Assets * 100,
+         Profitability = ngla_net_gain_loss / Assets * 100, 
+         Efficiency = ngla_revenue / Assets * 100,
+         NetWorth = (Assets - Liabilities) / Liabilities * 100,
+         Altman = 6.56 * Liquidity / 100 + 3.26 * Profitability / 100 + 6.72 * Efficiency / 100 + 1.05 * NetWorth / 100)
+#%>%  filter(STATE != 'CT')
+
 
 ```
 
