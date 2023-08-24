@@ -177,10 +177,10 @@ dim(table(df.apm$att, df.apm$STATE))
 df.apm %>% 
   ungroup() %>% 
   filter(year.rel %in% c(-1, 0)) %>% 
-  select(Treatment, year.rel, Total:Pct.COM) %>% 
+  select(Treatment, year.rel, Total:Pct.Homeless) %>% 
   mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated"), 
          Treat.YearRel = paste(Treatment, ",", year.rel)) %>% 
-  select(Treat.YearRel, Total:Pct.COM) %>% 
+  select(Treat.YearRel, Total:Pct.Homeless) %>% 
   tbl_summary(by = Treat.YearRel, 
               missing = "no", # don't list missing data separately
       statistic = all_continuous() ~ "{mean} ({sd})",
@@ -198,17 +198,17 @@ df.apm %>%
 as.matrix(df.apm %>% 
   ungroup() %>% 
   filter(year.rel %in% c(0)) %>% 
-  select(Total:Pct.COM)) - as.matrix(df.apm %>% 
+  select(Total:Pct.Homeless)) - as.matrix(df.apm %>% 
   ungroup() %>% 
   filter(year.rel %in% c(-1)) %>% 
-  select(Total:Pct.COM))) %>% 
-  mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated")) %>% 
+  select(Total:Pct.Homeless))) %>% 
+  mutate(Treatment = factor(ifelse(Treatment == 0, "Control", "Treated"))) %>% 
   tbl_summary(by = Treatment, 
               missing = "no", # don't list missing data separately
       statistic = all_continuous() ~ "{mean} ({sd})",
       digits = all_continuous() ~ c(2,2)
     ) %>% 
-  add_p
+  add_difference()
 
 
 
@@ -282,7 +282,7 @@ df.apm.quality2 <- df.apm %>%
   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
   #filter(att %in% c(0, 2016:2021)) %>% 
-  select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.Homeless) %>% 
+  select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM) %>% 
   #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
@@ -693,7 +693,7 @@ rownames(fin.class) <- NULL
 fin.class <- data.frame(Outcome = rep(c("Total Patients","Pct Uninsured","Pct Medicaid","Pct Medicare","Pct Commerical",
   "Revenue","Expenses","Profit","Assets","Liabilities","Costs Per Patient"), each = 2), Class = rep(APM.class.grouped[-1], 11), round(data.frame(fin.class[-1,]), 2))
 
-fin.class[-c(1),] %>% 
+fin.class %>% 
   mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
   pivot_wider(id_cols = Outcome, names_from = Class, values_from = c(Estimate, `95% CI`)) %>% 
   select(Outcome, Estimate_2, `95% CI_2`, Estimate_3, `95% CI_3`) %>% 
