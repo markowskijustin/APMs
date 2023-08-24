@@ -409,6 +409,7 @@ uds.covariates <-  uds.covariates %>%
          Pct.HL = HL / Total * 100,
          Pct.NHW = NHW / Total * 100,
          Pct.ESL = Eng2ndLang / Total * 100,
+         Pct.Children = (MCD.young + MCR.young + OtherPublic.young + COM.young + Uninsured.young) / Total * 100,
          Pct.LessThan100pctFPL = ifelse(Total == Unknown, 100, `<100%` / (Total- Unknown) * 100),
          Pct.LessThan200pctFPL = ifelse(Total == Unknown, 100, (`<100%` + `101-150%` + `151-200%`) / (Total - Unknown) * 100),
          Pct.FarmWorker = FarmWorker / Total * 100,
@@ -421,6 +422,7 @@ uds.covariates <-  uds.covariates %>%
 
 uds.covariates %>% 
   arrange(BHCMISID, Year)
+
 
 
 ```
