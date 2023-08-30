@@ -574,7 +574,7 @@ df.apm.quality3 <- df.apm %>%
   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
   #filter(att %in% c(0, 2016:2021)) %>% 
-    mutate(CostPerPatient = ngla_expense / Total) %>% 
+    mutate(CostPerPatient = as.numeric(ngla_expense) / Total) %>% 
   select(ID, Year, Tx, Class, Class.random, year.rel, Total, Pct.None:Pct.COM, ngla_revenue, ngla_expense, ngla_net_gain_loss, Assets, Liabilities, CostPerPatient, Pct.NHA:Pct.Homeless, att.random, Treatment) %>% 
   #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
