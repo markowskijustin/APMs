@@ -298,7 +298,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -360,7 +360,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -1031,7 +1031,7 @@ for (i in 2:7){
    filter(Class.Grouped == 1 | FullParticip == g) %>% 
    filter(MCD.filter == k)
   names(df.temp)[1] <- 'Outcome'
-  df.temp$Outcome <- df.temp$Outcome * 100
+  #df.temp$Outcome <- df.temp$Outcome * 100
 
 
 out.qual <- did2s(
@@ -1099,8 +1099,9 @@ for (g in 0:1){
  df.temp <- df.apm.mcd %>% 
    filter(Class.Grouped == c(1) | FullParticip == g) %>% 
    filter(MCD.filter == k) %>% 
+   mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate + htn.rate + dm.rate) / 6)
    #mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate) / 4)
-   mutate(Outcome = (htn.rate + dm.rate) / 2)
+   #mutate(Outcome = (htn.rate + dm.rate) / 2)
   #df.temp$Outcome <- df.temp$Outcome * 100
 
 
@@ -1163,8 +1164,9 @@ for (g in 0:1){
  df.temp <- df.apm.mcd %>% 
    filter(Class.Grouped == c(1,t) | FullParticip == g) %>% 
    filter(MCD.filter == k) %>% 
+   mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate + htn.rate + dm.rate) / 6)
    #mutate(Outcome = (pap.rate + crc.rate + childbmi.rate + adultbmi.rate) / 4)
-   mutate(Outcome = (htn.rate + dm.rate) / 2)
+   #mutate(Outcome = (htn.rate + dm.rate) / 2)
   #df.temp$Outcome <- df.temp$Outcome * 100
 
 
