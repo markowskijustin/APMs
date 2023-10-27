@@ -99,6 +99,7 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 
 #df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% group_by(BHCMISID)
 
+
 ```
 
 
@@ -161,7 +162,7 @@ df.apm %>%
 
 df.apm %>% 
   ungroup() %>% 
-  filter(Year == 2010) %>% 
+  filter(year.rel == -1) %>% 
   select(Treatment, Total:Pct.COM) %>% 
   mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated")) %>% 
   tbl_summary(by = Treatment, 
@@ -169,7 +170,7 @@ df.apm %>%
       statistic = all_continuous() ~ "{mean} ({sd})",
       digits = all_continuous() ~ c(2,2)
     ) %>% 
-  add_p
+  add_p(pvalue_fun = function(x) style_pvalue(x, digits = 3))
   
 dim(table(df.apm$att, df.apm$STATE))
 
@@ -208,7 +209,7 @@ as.matrix(df.apm %>%
       statistic = all_continuous() ~ "{mean} ({sd})",
       digits = all_continuous() ~ c(2,2)
     ) %>% 
-  add_difference()
+  add_difference(pvalue_fun = function(x) style_pvalue(x, digits = 3))
 
 
 
@@ -481,7 +482,7 @@ for (i in vecs){
   names(df.temp)[8] <- 'Outcome'
   df.temp$Outcome <- df.temp$Outcome
     static <- did2s(
-      data = df.temp %>% filter(Class.Grouped %in% c(1,2, 3)), 
+      data = df.temp %>% filter(Class.Grouped %in% c(1,2,3)), 
       yname = "Outcome", 
       treatment = "Tx",
         first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
@@ -726,7 +727,7 @@ fin.class.plot <- ggplot(data=fin.class[-c(1,2,21,22),] %>%
                                       Std..Error = ifelse(Measure == "Financials", Std..Error / 1000000, Std..Error)) %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "Cost-focused APM", "Quality-focused APM")), aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
+                                      Class = ifelse(Class == 2, "APM", "APM + Quality Incentives")), aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
 geom_point() + 
 
 #this changes the features of the overall effects
@@ -774,7 +775,7 @@ class.plot <- quality.class[-c(1,2),] %>%
   #mutate(Measure = "Health Outcomes and Process Quality (pp)") %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "Cost-focused APM", "Quality-focused APM")) %>% 
+                                      Class = ifelse(Class == 2, "APM", "APM with\nQuality Incentives")) %>% 
   rbind(fin.class %>% 
                                mutate(Measure = #ifelse(Outcome %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Quality: Outcomes", 
                                                 ifelse(Outcome %in% c("Total Patients","Pct Uninsured","Pct Medicaid","Pct Medicare","Pct Commerical"), "Total Patients and Payor Mix", "Financials")) %>% 
@@ -782,7 +783,7 @@ class.plot <- quality.class[-c(1,2),] %>%
                                       Std..Error = ifelse(Measure == "Financials", Std..Error / 1000000, Std..Error)) %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "Cost-focused APM", "Quality-focused APM"))) %>% 
+                                      Class = ifelse(Class == 2, "APM", "APM with\nQuality Incentives"))) %>% 
   #mutate(Measure.f = relevel(factor(Measure), ref = "Process Quality")) %>% 
   mutate(Measure = factor(Measure, levels = c("Process Quality","Health Outcomes", "Total Patients and Payor Mix","Financials"))) %>% 
   mutate(Outcome = ifelse(Outcome == "Total Patients", "Total Patients, thousands", Outcome), 
@@ -808,10 +809,11 @@ class.plot[class.plot$Measure == "Financials",]$Outcome <- gsub("$", ", $ millio
 class.plot[class.plot$Outcome == "Costs Per Patient, $ hundreds, $ millions",]$Outcome <- gsub(pattern = ", \\$ millions", "", class.plot[class.plot$Outcome == "Costs Per Patient, $ hundreds, $ millions",]$Outcome)
 
 
-     
+  #class.plot$Class <- str_wrap(class.plot$Class, width = 15)
+class.plot$Measure <- as.factor(str_wrap(class.plot$Measure, width = 10))
+class.plot$Measure <- factor(class.plot$Measure, levels = c("Process\nQuality","Health\nOutcomes", "Total\nPatients\nand Payor\nMix","Financials"))
      
 class.plot<- transform(class.plot, Outcome=reorder(Outcome, -Estimate)) 
-
 
 class.plot <- class.plot %>% 
   
