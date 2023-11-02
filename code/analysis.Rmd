@@ -108,11 +108,11 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 # Cleaned Up Analysis
 
 ```{r}
-library(usethis)
-
-usethis::git_sitrep()
-
-usethis::edit_r_environ()
+# library(usethis)
+# 
+# usethis::git_sitrep()
+# 
+# usethis::edit_r_environ()
 
 ```
 
