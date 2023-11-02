@@ -107,6 +107,10 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 
 # Cleaned Up Analysis
 
+```{r}
+library(usethis)
+```
+
 
 
 ## Sample Population
@@ -215,6 +219,15 @@ as.matrix(df.apm %>%
 
 
 
+## Evaluate Missingness due to financial records
+
+tbl_summary(df.apm %>% 
+              filter(Year == 2012) %>% 
+              ungroup() %>% 
+              mutate(MissingFinancials = ifelse(is.na(fs_program_service_revenue), "Missing","Complete")) %>% 
+              select(MissingFinancials, Pct.NHA:Pct.COM), by = MissingFinancials, 
+                statistic = list(all_continuous() ~ "{mean} ({sd})"), missing = "no") %>% 
+  add_p()
 ```
 
 
@@ -434,6 +447,124 @@ quality.class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = eleme
 
 
 
+
+
+## Simplified Complexity
+```{r}
+
+df.apm.clincomp <- df.apm %>% 
+  #select(BHCMISID:Total, T6A_L1AND2_CA:T6A_L34_CB) %>% 
+  mutate(HIV.prev = T6A_L1AND2_CB / Total * 100, 
+         HIV.care = T6A_L1AND2_CA / T6A_L1AND2_CB,
+         
+         # HepC.prev = T6A_L4B_CB / Total * 100, 
+         # HepC.care = T6A_L4B_CA / T6A_L4B_CB,
+         
+         # Asthma.prev = T6A_L5_CB / Total * 100, 
+         # Asthma.care = T6A_L5_CA / T6A_L5_CB, 
+         
+         # AbnormalPap.prev = T6A_L8_CB / Total * 100, 
+         # AbnormalPap.care = T6A_L8_CA / T6A_L8_CB, 
+         # 
+         # ImmunizationsGiven.prev = T6A_L24_CB / Total * 100, 
+         # ImmunizationsGiven.care = T6A_L24_CA / T6A_L24_CB,
+         
+         HeartDisease.prev = T6A_L10_CB / Total * 100, 
+         HeartDisease.care = T6A_L10_CA / T6A_L10_CB,
+         
+         # OverweightOrObesity.prev = T6A_L14A_CB / Total * 100, 
+         # OverweightOrObesity.care = T6A_L14A_CA / T6A_L14A_CB, 
+         
+         Depression.prev = T6A_L19A_CB / Total * 100, 
+         Depression.care = T6A_L19A_CA / T6A_L19A_CB, 
+         
+         Diabetes.prev = T6A_L9_CB / Total * 100, 
+         Diabetes.care = T6A_L9_CA / T6A_L9_CB, 
+         
+         Hypertension.prev = T6A_L11_CB / Total * 100, 
+         Hypertension.care = T6A_L11_CA / T6A_L11_CB) %>% #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
+  mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
+                         ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
+                         ifelse(Class == "0 - Control", 1, NA)))) %>% 
+  mutate(Complexity = (HIV.prev + HeartDisease.prev + Depression.prev + Diabetes.prev + Hypertension.prev) / 5, 
+         Intensity = (HIV.care + HeartDisease.care + Depression.care + Diabetes.care + Hypertension.care) / 5) %>% 
+  select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, #HIV.prev:Hypertension.care, 
+         Complexity, Intensity, 
+         Pct.NHA:Pct.COM, att.random, Treatment) # %>% filter(Class.Grouped %in% c(1,2))
+
+vecs <- c(8:9)
+vecs2 <- c((max(vecs) + 1):ncol(df.apm.clincomp))
+
+clincomp.prev <- c(0,0,0,0)
+
+for (i in vecs){
+  
+  df.temp <- df.apm.clincomp[,c(1:7, i, vecs2)]
+  names(df.temp)[8] <- 'Outcome'
+  df.temp$Outcome <- df.temp$Outcome
+    static <- did2s(
+      data = df.temp %>% filter(Class.Grouped %in% c(1,2,3)), 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+    clincomp.prev <- rbind(clincomp.prev, static$coeftable)
+  
+}
+
+clincomp.prev <- cbind(Outcome = colnames(df.apm.clincomp)[c(vecs)], round(data.frame(clincomp.prev[-1,]), 2))
+rownames(clincomp.prev) <- NULL
+
+
+#clincomp.prev$Measure <- gsub(x = str_extract(pattern = "^.+\\.", string = clincomp.prev$Outcome), pattern = "\\.", replacement = "")
+#clincomp.prev$MeasureClass <- "VisitsPerPatient"
+#clincomp.prev[grep(clincomp.prev$Outcome, pattern = "prev"),]$MeasureClass <- "Prevalence"
+
+
+# clincomp.prev %>% 
+#   mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = "")) %>% 
+#   pivot_wider(id_cols = Measure, names_from = MeasureClass, values_from = c(Estimate, `95% CI`)) %>% 
+#   select(Measure, Estimate_Prevalence, `95% CI_Prevalence`, Estimate_VisitsPerPatient, `95% CI_VisitsPerPatient`) %>% 
+#   kable("html", booktabs = T, col.names = c("Outcome","Estimate","95% CI","Estimate","95% CI")) %>% 
+#   kable_styling(latex_options = c("striped")) %>%
+#   #pack_rows(index = c("Process Quality" = 5, "Health Outcomes" = 2)) %>% 
+#   add_header_above(c(" " = 1, "Prevalence" = 2, "Visits per Patient" = 2))
+
+
+f3 <- df.apm.clincomp %>% 
+  mutate(Post = ifelse(as.numeric(Year - att.random) >= 0, 1, 0)) %>% 
+  #select(Post, Treatment, imm.rate:dm.rate, Pct.None:Pct.COM, ngla_revenue, ngla_expense, ngla_net_gain_loss, Staff, Assets, Liabilities) %>% 
+  group_by(Post, Treatment) %>% 
+  summarise(Complexity = mean(Complexity, na.rm = TRUE), 
+            #Asthma.prev = mean(Asthma.prev, na.rm = TRUE), 
+            Intensity = mean(Intensity, na.rm = TRUE)) %>%
+  pivot_longer(cols = c(Complexity:Intensity)) %>% 
+  mutate(value = round(value, 2)) %>% 
+  pivot_wider(id_cols = name, names_from = c(Treatment, Post), values_from = value) %>% 
+  mutate(UnadjDID =  (`1_1` - `1_0`) - (`0_1` - `0_0`)) %>% 
+  left_join(clincomp.prev, by = c("name" = "Outcome")) %>% 
+  select(name, `0_0`, `0_1`, `1_0`, `1_1`, UnadjDID, Estimate, Std..Error) %>% 
+  mutate(`95% CI` = paste(round(Estimate - 1.96 * Std..Error, 2), ", ", round(Estimate + 1.96 * Std..Error, 2), sep = ""), 
+         `% Change` = round(Estimate / `1_0` * 100, 1)) %>% 
+  select(name, `0_0`:Estimate, `95% CI`, `% Change`) %>% 
+  #filter(Outcome != "2yo Immunizations") %>% 
+  kable("html", booktabs = T, col.names = c("Outcome","Pre","Post","Pre","Post","Unadjusted DID","Estimate","95% CI","% Change")) %>% 
+  kable_styling(latex_options = c("striped")) %>%
+  #pack_rows(index = c("Prevalence of Common Conditions (Selection)" = 5, "Intensity of Care - Visits for Condition per Patient wtih Condition (Stinting)" = 5)) %>% 
+  add_header_above(c(" " = 1, "Control" = 2, "Treated" = 2, " " = 1, "Adjusted DID" = 3))
+
+f3
+
+
+
+
+```
+
+
+
 ## Clinical Complexity Change
 ```{r}
 
@@ -471,7 +602,10 @@ df.apm.clincomp <- df.apm %>%
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) %>% 
-  select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, HIV.prev:Hypertension.care, Pct.NHA:Pct.COM, att.random, Treatment) # %>% filter(Class.Grouped %in% c(1,2))
+  mutate(Complexity = (HIV.prev + HeartDisease.prev + Depression.prev + Diabetes.prev + Hypertension.prev) / 5, 
+         Intensity = (HIV.care + HeartDisease.care + Depression.care + Diabetes.care + Hypertension.care) / 5)
+  select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, HIV.prev:Hypertension.care,
+         Pct.NHA:Pct.COM, att.random, Treatment) # %>% filter(Class.Grouped %in% c(1,2))
 
 vecs <- c(8:17)
 vecs2 <- c((max(vecs) + 1):ncol(df.apm.clincomp))
@@ -729,7 +863,7 @@ fin.class.plot <- ggplot(data=fin.class[-c(1,2,21,22),] %>%
                                       Std..Error = ifelse(Measure == "Financials", Std..Error / 1000000, Std..Error)) %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "APM", "APM + Quality Incentives")), aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
+                                      Class = ifelse(Class == 2, "APM without\nQuality Incentives", "APM + Quality Incentives")), aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
 geom_point() + 
 
 #this changes the features of the overall effects
@@ -777,7 +911,7 @@ class.plot <- quality.class[-c(1,2),] %>%
   #mutate(Measure = "Health Outcomes and Process Quality (pp)") %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "APM", "APM with\nQuality Incentives")) %>% 
+                                      Class = ifelse(Class == 2, "APM without\nQuality Incentives", "APM with\nQuality Incentives")) %>% 
   rbind(fin.class %>% 
                                mutate(Measure = #ifelse(Outcome %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Quality: Outcomes", 
                                                 ifelse(Outcome %in% c("Total Patients","Pct Uninsured","Pct Medicaid","Pct Medicare","Pct Commerical"), "Total Patients and Payor Mix", "Financials")) %>% 
@@ -785,7 +919,7 @@ class.plot <- quality.class[-c(1,2),] %>%
                                       Std..Error = ifelse(Measure == "Financials", Std..Error / 1000000, Std..Error)) %>% 
                                mutate(LB = Estimate - 1.95 * Std..Error, 
                                       UB = Estimate + 1.95 * Std..Error, 
-                                      Class = ifelse(Class == 2, "APM", "APM with\nQuality Incentives"))) %>% 
+                                      Class = ifelse(Class == 2, "APM without\nQuality Incentives", "APM with\nQuality Incentives"))) %>% 
   #mutate(Measure.f = relevel(factor(Measure), ref = "Process Quality")) %>% 
   mutate(Measure = factor(Measure, levels = c("Process Quality","Health Outcomes", "Total Patients and Payor Mix","Financials"))) %>% 
   mutate(Outcome = ifelse(Outcome == "Total Patients", "Total Patients, thousands", Outcome), 
@@ -818,6 +952,7 @@ class.plot$Measure <- factor(class.plot$Measure, levels = c("Process\nQuality","
 class.plot<- transform(class.plot, Outcome=reorder(Outcome, -Estimate)) 
 
 class.plot <- class.plot %>% 
+  filter(Outcome %notin% c("Liabilities, $ millions","Medicare, pp","Commerical, pp")) %>% 
   
 ggplot(aes(y=Outcome, x=Estimate, xmin=LB, xmax=UB)) +
 geom_point() + 
@@ -1443,11 +1578,11 @@ out.qual.es <- data.frame(V1 = 0, estimator = 0, term = 0, estimate = 0, std.err
 for (i in 1:7){
  df.temp <- df.apm.es.temp[,c(i, 8:22)]
   names(df.temp)[1] <- 'Outcome'
-  df.temp$Outcome <- df.temp$Outcome * 100
+  df.temp$Outcome <- df.temp$Outcome #* 100
 
 
 out.qual <- event_study(data = df.temp, 
-  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless )
+  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", estimator = "did2s", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless )
 out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], out.qual))
 
 }
@@ -1455,10 +1590,11 @@ out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], out.qual))
 p.es.all <- out.qual.es[-1,] %>% 
   filter(estimator %notin% c("Callaway and Sant'Anna (2020)","Roth and Sant'Anna (2021)") & V1 != "2yo Immunizations") %>% 
   filter(abs(term) <= 7) %>% 
+  cbind(Groups = c(rep("Process Quality", 60), rep("Health Outcomes", 30))) %>% 
   ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
-  facet_wrap(~V1, scales = "free_y", ncol = 3) + 
+  facet_wrap(Groups~V1, scales = "free_y", ncol = 3, dir = "v") + 
   theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
-  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + ylab("DID Estimates") + xlab("Year Relative to APM Rollout")
 
 p.es.all
 ```
