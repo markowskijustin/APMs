@@ -608,7 +608,7 @@ df.apm.clincomp <- df.apm %>%
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) %>% 
   mutate(Complexity = (HIV.prev + HeartDisease.prev + Depression.prev + Diabetes.prev + Hypertension.prev) / 5, 
-         Intensity = (HIV.care + HeartDisease.care + Depression.care + Diabetes.care + Hypertension.care) / 5)
+         Intensity = (HIV.care + HeartDisease.care + Depression.care + Diabetes.care + Hypertension.care) / 5) %>% 
   select(BHCMISID, ID, Year, Tx, Class, Class.Grouped, year.rel, HIV.prev:Hypertension.care,
          Pct.NHA:Pct.COM, att.random, Treatment) # %>% filter(Class.Grouped %in% c(1,2))
 
