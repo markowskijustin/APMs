@@ -809,6 +809,9 @@ df.apm <- uds.covariates %>%
                     (STATE %in% c('OK','MO') & Year >= 2021) |
                     (STATE %in% c('AZ','AR','CA','CO','CT','DE','DC','HI','IL','IA','KY','MD','MA','MN','NV','NJ','NM','NY','ND','OH','OR','PA','RI','VT','VA','WA') & Year >= 2014), 1, 0))
 
+length(unique(df.apm$BHCMISID))
+
+
 class.vec <- rep(sort(unique(df.apm$Classification)), table(df.apm$Classification))
 
 
@@ -823,6 +826,9 @@ df.apm <- df.apm %>%
   mutate(year.rel = as.factor(ifelse(att.random > 0, Year - att.random, NA)), 
          Treatment = ifelse(att > 0, 1, 0)) %>% 
   select(BHCMISID:STATE, Name:ID, ACA:Treatment, Total:dm.total, fs_contributions:Liabilities) 
+
+length(unique(df.apm$BHCMISID))
+
 
 df.apm <- df.apm %>% 
   left_join(df.apm %>% 
@@ -865,6 +871,8 @@ df.apm <- df.apm %>%
          # NetWorth = (Assets - Liabilities) / Liabilities * 100,
          # Altman = 6.56 * Liquidity / 100 + 3.26 * Profitability / 100 + 6.72 * Efficiency / 100 + 1.05 * NetWorth / 100)
 #%>%  filter(STATE != 'CT')
+
+length(unique(df.apm$BHCMISID))
 
 
 ```

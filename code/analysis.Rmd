@@ -98,7 +98,7 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 # Read in data 
 ```{r}
 
-#df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% group_by(BHCMISID)
+df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% group_by(BHCMISID)
 
 
 
@@ -299,6 +299,7 @@ demo.all
 ```{r}
 
 df.apm.quality2 <- df.apm %>% 
+  #filter(!is.na(fs_program_service_revenue)) %>% 
   #filter(Class == "0 - Control" | FullParticip == 0) %>% 
   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
@@ -1605,6 +1606,39 @@ p.es.all
 ```
 
 
+# Robustness Testing
+
+## Multiple Hypothesis correction
+```{r}
+rbind(quality.class[-c(1,2),], fin.class) %>% 
+  arrange(`Pr...t..`) %>% 
+  cbind(c(1:34) / 34 * 0.1) %>% 
+  mutate(Row = row_number()) %>% 
+  ggplot(aes(x = Row, y = `Pr...t..`)) + geom_point() + 
+  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/34 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
+
+
+
+
+rbind(quality.all[-1,], fin.payor.prev.all) %>% 
+  arrange(`Pr...t..`) %>% 
+  cbind(c(1:17) / 17 * 0.1) %>% 
+  mutate(Row = row_number()) %>% 
+  ggplot(aes(x = Row, y = `Pr...t..`)) + geom_point() + 
+  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/17 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
+
+rbind(fin.payor.prev.all) %>% 
+  arrange(`Pr...t..`) %>% 
+  cbind(c(1:11) / 11 * 0.1) %>% 
+  mutate(Row = row_number()) %>% 
+  ggplot(aes(x = Row, y = `Pr...t..`)) + geom_point() + 
+  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/11 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
+```
+
+
+
+
+
 
 
 
@@ -1807,17 +1841,7 @@ df.temp %>%
 ```
 
 
-# Robustness Testing
 
-## Multiple Hypothesis correction
-```{r}
-rbind(quality.class[-c(1,2),], fin.class) %>% 
-  arrange(`Pr...t..`) %>% 
-  cbind(c(1:24) / 24 * 0.1) %>% 
-  mutate(Row = row_number()) %>% 
-  ggplot(aes(x = Row, y = `Pr...t..`)) + geom_point() + 
-  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/26 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
-```
 
 
 ## Change in EHR measurements
