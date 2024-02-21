@@ -98,7 +98,7 @@ theme_tufte_revised <- function(base_size = 11, base_family = base_font_family_t
 # Read in data 
 ```{r}
 
-df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% group_by(BHCMISID)
+#df.apm <- read_csv("//Users/jhm65/Dropbox/Git/APMs/data_processed/analyticalfile.csv") %>% group_by(BHCMISID)
 
 
 
@@ -452,7 +452,7 @@ p <- quality.class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = 
 p
 
 
-ggsave(filename = "APM_Picture5.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p, width = 16, height = 9)
+#ggsave(filename = "APM_Picture5.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p, width = 16, height = 9)
 ```
 
 
@@ -1001,7 +1001,7 @@ theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQ
 
 class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12))
 
-
+ggsave(filename = "APM_Picture4.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12)), width = 16, height = 9)
 ```
 
 
@@ -1229,7 +1229,7 @@ xlab("Subsample") +
 
 #adding a vertical line at the effect = 0 mark
 geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) +
-  facet_wrap(~V1, scales = "free_y") + 
+  facet_wrap(~V1, scales = "free_y", nrow = 3) + 
 
 #faceting based on my subgroups
   #facet_wrap(~X1) +
@@ -1597,7 +1597,7 @@ for (i in 1:7){
 
 
 out.qual <- event_study(data = df.temp, 
-  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", estimator = "did2s", 
+  yname = "Outcome", idname = "ID", tname = "Year", gname = "att", #estimator = "did2s", 
   xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless )
 out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], out.qual))
 
@@ -1606,10 +1606,10 @@ out.qual.es <- rbind(out.qual.es, cbind(title.vec[i], out.qual))
 p.es.all <- out.qual.es[-1,] %>% 
   filter(estimator %notin% c("Callaway and Sant'Anna (2020)","Roth and Sant'Anna (2021)") & V1 != "2yo Immunizations") %>% 
   filter(abs(term) <= 7) %>% 
-  cbind(Groups = c(rep("Process Quality", 60), rep("Health Outcomes", 30))) %>% 
-  #cbind(Groups = c(rep("Process Quality", 57*4), rep("Health Outcomes", 57*2))) %>% 
+  #cbind(Groups = c(rep("Process Quality", 60), rep("Health Outcomes", 30))) %>% 
+  cbind(Groups = c(rep("Process Quality", 57*4), rep("Health Outcomes", 57*2))) %>% 
   ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
-  facet_wrap(Groups~V1, scales = "free_y", ncol = 3, dir = "v") + 
+  facet_wrap(Groups~V1, scales = "free_y", ncol = 3, dir = "v", nrow = 3) + 
   theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
   geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + ylab("DID Estimates") + xlab("Year Relative to APM Rollout")
 
