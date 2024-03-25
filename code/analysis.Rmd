@@ -309,12 +309,16 @@ df.apm.quality2 <- df.apm %>%
   #filter(Class == "0 - Control" | FullParticip == 0) %>% 
   #ungroup() %>% filter(Total >= median(Total)) %>% group_by(BHCMISID) %>% 
   #filter(att %in% c(0, 2013, 2014, 2015) & Year <= 2015) %>% 
-  #filter(att %in% c(0, 2016:2021)) %>% 
-  select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM) %>% 
+  #filter(att %in% c(0, 2015:2019) & Year <= 2019) %>% 
+  #filter(Year <= 2019) %>% 
+  select(ID, Year, Tx, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM, ACA) %>% 
   #left_join(df.apm %>% filter(year.rel == -1) %>% select(BHCMISID, Pct.NHA:Pct.COM), by = c("BHCMISID")) %>% 
   mutate(Class.Grouped = ifelse(Class %in% c("3 - Rebased per-visit rate","4 - PMPM Payment","5 - Base Rate plus Quality Bonus"), 3, 
                          ifelse(Class %in% c("1 - Medicaid Managed Care","2 - At-cost reimbursement"), 2, 
                          ifelse(Class == "0 - Control", 1, NA)))) 
+
+
+
 
 quality.all <- c(0,0,0,0)
 
@@ -326,7 +330,7 @@ for (i in 8:14){
       data = df.temp, 
       yname = "Outcome", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -454,6 +458,13 @@ p
 
 #ggsave(filename = "APM_Picture5.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p, width = 16, height = 9)
 ```
+
+
+
+
+
+
+
 
 
 
@@ -1660,6 +1671,16 @@ rbind(fin.payor.prev.all) %>%
 
 
 
+## Formal Pre-trends
+
+
+```{r}
+
+lm(data = df.apm, 
+
+
+
+```
 
 
 
