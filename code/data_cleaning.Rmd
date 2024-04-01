@@ -712,8 +712,8 @@ uds.quality.7 <- uds.quality.7 %>%
 
 
 uds.quality.7 %>% 
-  filter(Race == " Total" | is.na(Race))%>% 
   arrange(BHCMISID, Year) %>% 
+  filter(Race == " Total" | is.na(Race) | (Race == "Unreported/Refused to report" & is.na(Ethnicity))) %>% 
   group_by(Year, BHCMISID) %>% 
   summarise(htn.rate = sum(htn.rate * htn.total) / sum(htn.total), 
             htn.total = sum(htn.total), 
@@ -788,6 +788,7 @@ df.apm <- uds.covariates %>%
   left_join(uds.6a, by = c("BHCMISID","Year" = "YEAR")) %>% 
   left_join(uds.quality.6b %>% select(Year, BHCMISID, imm.rate:adultbmi.denom), by = c("BHCMISID","Year")) %>% 
   left_join(uds.quality.7 %>% 
+  #filter(Race == " Total" | is.na(Race) | (Race == "Unreported/Refused to report" & is.na(Ethnicity))) %>% 
   filter(Race == " Total" | is.na(Race)) %>% 
   group_by(Year, BHCMISID) %>% 
   summarise(htn.rate = sum(htn.rate * htn.total) / sum(htn.total), 
@@ -839,10 +840,14 @@ df.apm <- df.apm %>%
 
 df.apm$year.rel <- relevel(as.factor(df.apm$year.rel), ref = "-1") 
 
-## Filter for balanced panel, remove closures and late openings
+## Filter for balanced panel, remove closures and late openings, TOGGLE THIS TO INCLUDE DROPOUTS
 df.apm <- df.apm %>%
-  left_join(df.apm %>% summarise(Counts = n(), MinYear = min(Year)), by = c("BHCMISID")) %>%
-  filter(Counts == length(included.years))#  filter(Counts < 13 & MinYear == 2009)    filter(Counts == length(included.years))
+  left_join(df.apm %>% summarise(Counts = n(), MinYear = min(Year)), by = c("BHCMISID"))  %>%  filter(Counts == length(included.years))# toggle this last bit
+
+
+
+
+#  filter(Counts < 13 & MinYear == 2009)    filter(Counts == length(included.years))
 
 ## Remove some weird shit in CT
 df.apm <- df.apm %>% 
