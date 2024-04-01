@@ -239,6 +239,42 @@ tbl_summary(df.apm %>%
 
 
 ggsave(filename = "APM_Picture1.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p.maps, width = 16, height = 9)
+
+
+
+
+
+## This is the correct approach
+
+table1.counts <- df.apm %>% 
+  ungroup() %>% 
+  filter(year.rel %in% c(-1, 0)) %>% 
+  select(Treatment, year.rel, Total:Pct.Homeless) %>% 
+  mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated"), 
+         Treat.YearRel = paste(Treatment, ",", year.rel)) %>% 
+  select(Treat.YearRel, Total:Pct.Homeless) 
+
+
+table1.totals <- table1.counts %>% 
+  group_by(Treat.YearRel) %>% 
+  summarise(mean(Total))
+
+
+
+table1.counts <- cbind(Treat.YearRel = table1.counts$Treat.YearRel, table1.counts[,c(3:12)] ) %>%  #* table1.counts$Total / 100
+    group_by(Treat.YearRel) %>% 
+  summarise_all(mean)
+
+
+t((table1.counts[,c(2:11)]) / 100 * unlist(table1.totals[,2]))
+
+
+# %>%
+#     tbl_summary(by = Treat.YearRel, 
+#               missing = "no", # don't list missing data separately
+#       statistic = all_continuous() ~ "{mean} ({sd})",
+#       digits = all_continuous() ~ c(2,2)
+#     )
 ```
 
 
@@ -464,6 +500,69 @@ p
 
 
 
+## Composite Quality Plots - Pooled estimates
+```{r}
+
+## Unadjusted Trends Plot
+
+df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate + dm.rate + htn.rate) / 6) %>% 
+  #filter(Tx == 1 | Treatment == 0) %>% 
+  group_by(Treatment, Year) %>% 
+  summarise(Qcomp = mean(Qcomp, na.rm = TRUE)) %>% 
+  ggplot(aes(x = Year, y = Qcomp, group = Treatment, color = as.factor(Treatment))) + geom_point() + xlim(2013, 2021) + ylim(50, 70) #+ geom_smooth(method = "loess")
+
+
+
+
+## Overall Effects
+did2s(
+      data = df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate + dm.rate + htn.rate) / 6), 
+      yname = "Qcomp", 
+      treatment = "Tx",
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE #, bootstrap = T, n_bootstraps = 500
+    )
+
+
+did2s(
+      data = df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate + dm.rate + htn.rate) / 6) %>% 
+        filter(Year < 2020), 
+      yname = "Qcomp", 
+      treatment = "Tx",
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE #, bootstrap = T, n_bootstraps = 500
+    )
+
+
+
+## Event Study
+out.qual.comp <- event_study(data = df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate + dm.rate + htn.rate) / 6), 
+  yname = "Qcomp", idname = "ID", tname = "Year", gname = "att", estimator = "all", xformla = ~Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless )
+
+
+p.es.all.comp <- out.qual.comp[-1,] %>% 
+  #filter(estimator != "Callaway and Sant'Anna (2020)") %>% 
+  filter(estimator == "Gardner (2021)" ) %>% 
+  #mutate(g = ifelse(g == 1, "FQHC ever participated in APM", "FQHC may not have ever participated in APM")) %>% 
+  filter(abs(term) <= 7) %>% 
+  ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
+  #facet_wrap(~V1 + g, scales = "free_y",ncol = 2) + 
+  theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + 
+  theme_tufte_revised()+
+   theme(strip.placement = "outside") +
+#theme(text=element_text(family="Times",size=12, color="black"))+
+theme(panel.spacing = unit(1, "lines")) 
+
+p.es.all.comp
+
+
+
+```
 
 
 
@@ -1676,9 +1775,86 @@ rbind(fin.payor.prev.all) %>%
 
 ```{r}
 
-lm(data = df.apm, 
+#library(lmtest)
+
+df.trends <- df.apm %>% #filter(Treatment == 0 | as.numeric(as.character(year.rel)) %in% c(-6:-2)) %>% 
+                        select(ID, Year, Tx, Treatment, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM, ACA)
 
 
+pretrends <- c(0,0,0,0,0)
+for (k in 10:15){
+  df.temp.trends <- df.trends[,c(1:8, k, 16:27)]
+    names(df.temp.trends)[9] <- 'Outcome'
+model <- did2s(
+      data = df.temp.trends, 
+      yname = "Outcome", 
+      treatment = "Tx",
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless  | ID + Year , 
+        second_stage = ~ i(year.rel, ref = c(-1, Inf)),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+pretrends <- rbind(pretrends, cbind(Outcome = colnames(df.trends[,k]), model$coeftable))
+}
+
+pretrends <- pretrends[-1,]
+
+rownames(pretrends)
+ordering <- as.numeric(gsub(pattern = "year.rel::", replacement = "", rownames(pretrends)))
+
+
+
+cbind(ordering, data.frame(pretrends))[order(ordering),] %>% 
+  filter(ordering %in% c(-6:-2)) %>% 
+  arrange(`Pr...t..`) %>% 
+  mutate(P.value = as.numeric(`Pr...t..`)) %>% 
+  cbind(c(1:30) / 30 * 0.1) %>% 
+  mutate(Row = row_number()) %>% 
+  ggplot(aes(x = Row, y = P.value)) + geom_point() + 
+  ylab("p-values") + xlab("Significance Rank") + geom_abline(slope = 1/30 * 0.1, intercept = 0, color="red", linetype="dashed", alpha=.5) + theme_minimal()
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+## Placebo Analysis
+
+
+```{r}
+placebo <- c(0,0,0,0)
+for (k in 9:18){
+  df.placebo <- (df.apm %>% select(ID, Year, Tx, Treatment, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM, ACA))[,c(1:8, 16:27)]
+
+  names(df.placebo)[k] <- 'Outcome'
+  
+
+placebo.model <- did2s(
+      data = df.placebo, 
+      yname = "Outcome", #Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL  + Pct.FarmWorker + Pct.Homeless 
+      treatment = "Tx",
+        first_stage = ~ 0  | ID + Year , 
+        second_stage = ~ i(Tx, ref = FALSE),
+        cluster_var = "ID",
+      verbose = FALSE
+    )
+
+placebo <- rbind(placebo, placebo.model$coeftable)
+print(k)
+}
+
+
+cbind(colnames((df.apm %>% select(ID, Year, Tx, Treatment, Class, Class.random, year.rel, imm.rate, pap.rate, crc.rate, childbmi.rate, adultbmi.rate, htn.rate, dm.rate, Pct.NHA:Pct.COM, ACA))[,c(1:8, 16:27)])[9:18], placebo[-1,]) %>% 
+  data.frame()
 
 ```
 
