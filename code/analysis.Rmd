@@ -509,7 +509,9 @@ df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate +
   #filter(Tx == 1 | Treatment == 0) %>% 
   group_by(Treatment, Year) %>% 
   summarise(Qcomp = mean(Qcomp, na.rm = TRUE)) %>% 
-  ggplot(aes(x = Year, y = Qcomp, group = Treatment, color = as.factor(Treatment))) + geom_point() + xlim(2013, 2021) + ylim(50, 70) #+ geom_smooth(method = "loess")
+  mutate(Treatment = ifelse(Treatment == 1, "FQHC in APM-rollout State", "FQHC in non-APM State")) %>% 
+  ggplot(aes(x = Year, y = Qcomp, group = Treatment, color = Treatment)) + geom_point() 
+    + xlim(2013, 2021) + ylim(50, 75) + ylab("Quality Composite, average") + xlab("Year")
 
 
 
@@ -519,7 +521,7 @@ did2s(
       data = df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate + dm.rate + htn.rate) / 6), 
       yname = "Qcomp", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + ACA | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -531,7 +533,7 @@ did2s(
         filter(Year < 2020), 
       yname = "Qcomp", 
       treatment = "Tx",
-        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless | ID + Year , 
+        first_stage = ~ Pct.NHA + Pct.NHB + Pct.HL + Pct.LessThan100pctFPL + Pct.FarmWorker + Pct.Homeless + ACA | ID + Year , 
         second_stage = ~ i(Tx, ref = FALSE),
         cluster_var = "ID",
       verbose = FALSE #, bootstrap = T, n_bootstraps = 500
@@ -556,7 +558,7 @@ p.es.all.comp <- out.qual.comp[-1,] %>%
   theme_tufte_revised()+
    theme(strip.placement = "outside") +
 #theme(text=element_text(family="Times",size=12, color="black"))+
-theme(panel.spacing = unit(1, "lines")) 
+theme(panel.spacing = unit(1, "lines")) + ylab("DID Estimates") + xlab("Year Relative to APM Rollout")
 
 p.es.all.comp
 
