@@ -429,6 +429,7 @@ uds.covariates %>%
 
 
 
+
 ```
 
 
@@ -842,7 +843,7 @@ df.apm$year.rel <- relevel(as.factor(df.apm$year.rel), ref = "-1")
 
 ## Filter for balanced panel, remove closures and late openings, TOGGLE THIS TO INCLUDE DROPOUTS
 df.apm <- df.apm %>%
-  left_join(df.apm %>% summarise(Counts = n(), MinYear = min(Year)), by = c("BHCMISID"))  %>%  filter(Counts == length(included.years))# toggle this last bit
+  left_join(df.apm %>% summarise(Counts = n(), MinYear = min(Year)), by = c("BHCMISID")) %>%  filter(Counts == length(included.years))# toggle this last bit
 
 
 
