@@ -165,7 +165,9 @@ annotate_figure(p.maps, top = text_grob("US States in Sample", face = "bold", si
 df.apm %>% 
   ungroup() %>% 
   filter(Year == 2010) %>% 
-  select(Class, Total:Pct.COM) %>% 
+    inner_join(read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% 
+               select(BHCMISID, UrbanRuralFlag), by = c("BHCMISID")) %>% 
+  select(Class, Total:Pct.COM, UrbanRuralFlag) %>% 
   tbl_summary(by = Class, 
               missing = "no", # don't list missing data separately
       statistic = all_continuous() ~ "{mean} ({sd})",
@@ -190,10 +192,20 @@ dim(table(df.apm$att, df.apm$STATE))
 df.apm %>% 
   ungroup() %>% 
   filter(year.rel %in% c(-1, 0)) %>% 
-  select(Treatment, year.rel, Total:Pct.Homeless) %>% 
+  left_join(rbind(read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2012-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2013-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% select(BHCMISID, ReportingYear, UrbanRuralFlag),
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2014-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% select(BHCMISID, ReportingYear, UrbanRuralFlag),
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2015-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 1) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2016-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2017-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2018-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2019-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2020-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% rename(BHCMISID = "BHCMIS ID", ReportingYear = "Reporting Year", UrbanRuralFlag = "Urban Rural Flag") %>% select(BHCMISID, ReportingYear, UrbanRuralFlag), 
+      read_excel("//Users/jhm65/Dropbox/Git/UDS/UDS-2021-Full-Dataset.xlsx", sheet = "HealthCenterInfo", skip = 0) %>% select(BHCMISID, ReportingYear, UrbanRuralFlag)) %>% mutate(ReportingYear = as.numeric(ReportingYear)), by = c("BHCMISID", "Year" = "ReportingYear")) %>% 
+  select(Treatment, year.rel, Total:Pct.Homeless,UrbanRuralFlag) %>% 
   mutate(Treatment = ifelse(Treatment == 0, "Control", "Treated"), 
          Treat.YearRel = paste(Treatment, ",", year.rel)) %>% 
-  select(Treat.YearRel, Total:Pct.Homeless) %>% 
+  select(Treat.YearRel, Total:Pct.Homeless, UrbanRuralFlag) %>% 
   tbl_summary(by = Treat.YearRel, 
               missing = "no", # don't list missing data separately
       statistic = all_continuous() ~ "{mean} ({sd})",
@@ -276,6 +288,8 @@ t((table1.counts[,c(2:11)]) / 100 * unlist(table1.totals[,2]))
 #       digits = all_continuous() ~ c(2,2)
 #     )
 ```
+
+
 
 
 ## Demographics
@@ -510,8 +524,7 @@ df.apm %>% mutate(Qcomp = (crc.rate + pap.rate + childbmi.rate + adultbmi.rate +
   group_by(Treatment, Year) %>% 
   summarise(Qcomp = mean(Qcomp, na.rm = TRUE)) %>% 
   mutate(Treatment = ifelse(Treatment == 1, "FQHC in APM-rollout State", "FQHC in non-APM State")) %>% 
-  ggplot(aes(x = Year, y = Qcomp, group = Treatment, color = Treatment)) + geom_point() 
-    + xlim(2013, 2021) + ylim(50, 75) + ylab("Quality Composite, average") + xlab("Year")
+  ggplot(aes(x = Year, y = Qcomp, group = Treatment, color = Treatment)) + geom_point() + xlim(2013, 2021) + ylim(50, 70) + ylab("Quality Composite, average") + xlab("Year")
 
 
 
