@@ -26,6 +26,7 @@ library(usmap)
 library(did2s)
 library(formattable)
 library(readr)
+library(clipr)
 
 `%notin%` <- Negate(`%in%`)
 select <- dplyr::select
@@ -505,6 +506,14 @@ theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQ
 p <- quality.class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12))
 p
 
+
+
+## Data for Figure 2
+quality.class[-c(1,2),] %>% 
+                               mutate(Measure = ifelse(Outcome %in% c("Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus"), "Health Outcomes","Process Qualityy")) %>% 
+                               mutate(LB = Estimate - 1.95 * Std..Error, 
+                                      UB = Estimate + 1.95 * Std..Error, 
+                                      Class = ifelse(Class == 2, "Cost-focused APM", "Quality-focused APM"))
 
 #ggsave(filename = "APM_Picture5.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p, width = 16, height = 9)
 ```
@@ -1091,6 +1100,16 @@ class.plot$Measure <- factor(class.plot$Measure, levels = c("Process\nQuality","
      
 class.plot<- transform(class.plot, Outcome=reorder(Outcome, -Estimate)) 
 
+
+## Raw data for publication
+
+
+class.plot %>% 
+  filter(Outcome %notin% c("Liabilities, $ millions","Medicare, pp","Commerical, pp")) %>% 
+  select(Outcome, Estimate, LB, UB) %>% 
+  write_clip()
+
+
 class.plot <- class.plot %>% 
   filter(Outcome %notin% c("Liabilities, $ millions","Medicare, pp","Commerical, pp")) %>% 
   
@@ -1110,7 +1129,7 @@ geom_errorbarh(height=.1) +
 #scale_y_continuous(name = "", breaks=1:9, labels = t9.forest$X1, trans="reverse")+
 
 #adding a vertical line at the effect = 0 mark
-geom_vline(xintercept=0, color="black", linetype="dashed", alpha=.5)+
+geom_vline(xintercept=0, color="black", linetype="dashed", alpha= 1)+
 
 #faceting based on my subgroups
   #facet_wrap(~X1) +
@@ -1127,6 +1146,15 @@ theme(panel.spacing = unit(1, "lines")) #+  ggtitle("Effect of APM Rollout on FQ
 class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12))
 
 ggsave(filename = "APM_Picture4.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12)), width = 16, height = 9)
+
+
+## Save figure as pdf for publication
+
+ggsave(filename = "APM_Picture2.eps", path = "/Users/jhm65/Dropbox/Writing/APMs/Submission - JAMA IM/Revision", plot = class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12)), width = 15, height = 10)
+
+ggsave(filename = "APM_Picture2.pdf", path = "/Users/jhm65/Dropbox/Writing/APMs/Submission - JAMA IM/Revision", plot = class.plot + theme(panel.spacing = unit(1, "lines"),  strip.text = element_text(face = "bold", size = 12)), width = 15, height = 10)
+
+
 ```
 
 
@@ -1289,6 +1317,9 @@ theme(panel.spacing = unit(1, "lines"))
 p.es.all
 
 
+
+ 
+ 
 nrow(df.apm.es.temp %>% filter(FullParticip %in% c(0, 1) | Class.Grouped == 1)) / nrow(df.apm.es.temp )
 
 ```
@@ -1656,11 +1687,12 @@ quality.prev.class %>%
 ## Standard ES plots for Gardner 2021 only 
 es.plots <- as.list(0)
 
+es.data.raw <- c(0,0,0,0,0,0)
 for (i in 8:14){
   
   df.temp <- df.apm.quality2[,c(1:7, i, 15:27)]
   names(df.temp)[8] <- 'Outcome'
-  df.temp$Outcome <- df.temp$Outcome * 100
+  #df.temp$Outcome <- df.temp$Outcome * 100
 es <- did2s(
       data =  df.temp, 
       yname = "Outcome", 
@@ -1670,6 +1702,10 @@ es <- did2s(
         cluster_var = "ID",
       verbose = FALSE
     )
+
+es.data.raw <- rbind(es.data.raw, cbind(i, data.frame(year.rel = as.numeric(gsub("year.rel::", "", rownames(es$coeftable))), es$coeftable) %>% 
+  rbind(c(-1, 0, 0, 0, 0)) %>% 
+  filter(abs(year.rel) <= 8)))
 es.plots[[i-7]] <- data.frame(year.rel = as.numeric(gsub("year.rel::", "", rownames(es$coeftable))), es$coeftable) %>% 
   rbind(c(-1, 0, 0, 0, 0)) %>% 
   filter(abs(year.rel) <= 8) %>% 
@@ -1679,6 +1715,10 @@ es.plots[[i-7]] <- data.frame(year.rel = as.numeric(gsub("year.rel::", "", rowna
   geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
   geom_hline(yintercept=0, color="black", linetype="dashed", alpha=.5) + ylab("Effect Estimate (pp)") + xlab("Year Relative to APM Rollout in State") 
 }
+
+
+es.data.raw
+
 
 title.vec <- c("2yo Immunizations","Cervical Cancer Screening","Colorectal Cancer Screening", "Child BMI Screening","Adult BMI Screening","Blood Pressure Control for Hypertension","A1c Control for Diabetes Mellitus")
 
@@ -1746,8 +1786,30 @@ p.es.all #+ theme(legend.position = "none")
 
 #ggsave(filename = "APM_Picture3.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p.es.all+ theme(legend.position = "none"), width = 16, height = 9)
 
+## RAW data for publication
+out.qual.es[-1,] %>% 
+  filter(estimator %in% c("Gardner (2021)") & V1 != "2yo Immunizations") %>% 
+  filter(abs(term) <= 7) %>% 
+  mutate(LB = estimate-1.96*std.error, UB = estimate+1.96*std.error) %>% 
+  write_clip()
 
-ggsave(filename = "APM_PictureA2.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p.es.all, width = 15, height = 20)
+
+es.for.pub <- out.qual.es[-1,] %>% 
+  filter(estimator %in% c("Gardner (2021)") & V1 != "2yo Immunizations") %>% 
+  filter(abs(term) <= 7) %>% 
+  mutate(LB = estimate-1.96*std.error, UB = estimate+1.96*std.error) %>% 
+  cbind(Groups = c(rep("Process Quality", 60), rep("Health Outcomes", 30))) %>% 
+ ggplot(aes(x = term, y = estimate, color = estimator)) + geom_point(position = position_dodge(0.9)) + geom_errorbar(aes(ymin=estimate-1.96*std.error, ymax=estimate+1.96*std.error), width=.2, position = position_dodge(0.9))  + 
+  facet_wrap(Groups~V1, scales = "free_y", ncol = 3, dir = "v", nrow = 2) + 
+  theme_tufte_revised() + geom_vline(xintercept=-0.5, color="red", linetype="dashed", alpha=.5) + 
+  geom_hline(yintercept=0, color="black", linetype="dashed", alpha=1) + ylab("DID Estimates") + xlab("Year Relative to APM Rollout")+ theme(legend.position = "none")
+
+
+ggsave(filename = "APM_Figure1.pdf", path = "/Users/jhm65/Dropbox/Writing/APMs/Submission - JAMA IM/Revision", plot = es.for.pub, width = 20, height = 15)
+ggsave(filename = "APM_Figure1.eps", path = "/Users/jhm65/Dropbox/Writing/APMs/Submission - JAMA IM/Revision", plot = es.for.pub, width = 20, height = 15)
+
+
+#ggsave(filename = "APM_PictureA2.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p.es.all, width = 15, height = 20)
 ```
 
 
