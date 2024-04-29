@@ -292,6 +292,49 @@ t((table1.counts[,c(2:11)]) / 100 * unlist(table1.totals[,2]))
 
 
 
+## Comprehensive Map for Sharing
+```{r}
+
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+## Mapping
+
+p.map <- plot_usmap(data = apm.history %>% 
+                      rename(state = `Postal Code`) %>% 
+  ungroup() %>% 
+  select(Name, state, Classification) %>% 
+  unique() %>% 
+  arrange(Name), values = "Classification", regions = "state", color = "white", size = 0.3) + 
+  #scale_fill_discrete(type = "viridis", aes(alpha = I(Treatment + 0.5))) + 
+  labs(title = "By APM Class") +
+  #scale_fill_manual(values=cbPalette) + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+p.map.rollout <- plot_usmap(data = apm.history %>% 
+                      rename(state = `Postal Code`) %>% 
+  ungroup() %>% 
+  select(Name, state, Classification, Year) %>% 
+    mutate(Year = (Year)) %>% 
+  unique() %>% 
+  arrange(Name), values = "Year", regions = "state", color = "white", size = 0.3) + 
+  #scale_fill_brewer(palette="BrBG") + 
+  labs(title = "By Rollout Year") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+p.maps <- ggarrange(p.map + theme(legend.position="bottom"), p.map.rollout + theme(legend.position="bottom"))
+
+#p.maps <- annotate_figure(p.maps, top = text_grob("US States in Sample", face = "bold", size = 14))
+
+p.maps
+
+ggsave(filename = "APM_Picture1_alltime.png", path = "/Users/jhm65/Dropbox/Committee/Defense Papers/Figures", plot = p.maps, width = 16, height = 9)
+```
+
+
+
 
 ## Demographics
 
